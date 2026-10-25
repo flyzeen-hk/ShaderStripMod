@@ -31,7 +31,8 @@ ShaderStripMod.experimental.*
 # Logs and internal QA material
 QA/
 Tests/LiveQA/
-Tests/RuntimeAudit/*/
+Tests/RuntimeAudit/*
+!Tests/RuntimeAudit/StableRuntimeAudit.cs
 *.log
 Player.log
 ModLog.txt
