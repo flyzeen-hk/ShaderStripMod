@@ -104,6 +104,8 @@ dotnet build ShaderStripMod.csproj -c Release -p:HollowKnightRefs="C:\Program Fi
 
 The project fails with a clear message if `Assembly-CSharp.dll` cannot be found. Build output is `bin\Release\ShaderStripMod.dll` and `.pdb`.
 
+The original 1.29.29 build environment was not pinned. A rebuild from these sources produces the same 870 method bodies but can have a different module version id (MVID) and PDB checksum, so it is functionally identical rather than byte-identical to the published DLL. The release ZIP ships the audited 1.29.29 binary.
+
 Run the automatic checks:
 
 ```powershell
@@ -224,6 +226,8 @@ dotnet build ShaderStripMod.csproj -c Release -p:HollowKnightRefs="C:\Program Fi
 ```
 
 Если `Assembly-CSharp.dll` не найден, проект завершится с понятным сообщением. Результат сборки — `bin\Release\ShaderStripMod.dll` и `.pdb`.
+
+Окружение оригинальной сборки 1.29.29 не зафиксировано. Пересборка из этих исходников даёт те же 870 тел методов, но может иметь другой MVID и контрольную сумму PDB: она функционально идентична опубликованной DLL, хотя и не совпадает с ней побайтно. В релизный ZIP входит проверенный бинарник 1.29.29.
 
 Автоматические проверки:
 
