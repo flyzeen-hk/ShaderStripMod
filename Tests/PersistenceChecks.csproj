@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net472</TargetFramework><LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><IntermediateOutputPath>obj\PersistenceChecks\$(Configuration)\</IntermediateOutputPath><OutputPath>bin\PersistenceChecks\</OutputPath><GenerateAssemblyInfo>false</GenerateAssemblyInfo></PropertyGroup>
+<ItemGroup><Compile Include="..\Source\AtomicTextFile.cs" /><Compile Include="..\Source\PreserveRules.cs" /><Compile Include="PersistenceChecks.cs" /></ItemGroup>
+</Project>

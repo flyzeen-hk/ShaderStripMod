@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><OutputType>Exe</OutputType><EnableDefaultCompileItems>false</EnableDefaultCompileItems><IntermediateOutputPath>obj\CameraPinChecks\$(Configuration)\</IntermediateOutputPath><OutputPath>bin\CameraPinChecks\</OutputPath></PropertyGroup>
+  <ItemGroup><Compile Include="..\Source\CameraPin.cs" /><Compile Include="..\Source\RuleControlsLayout.cs" /><Compile Include="CameraPinChecks.cs" /></ItemGroup>
+</Project>

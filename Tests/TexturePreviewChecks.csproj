@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework><OutputType>Exe</OutputType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IntermediateOutputPath>obj\TexturePreviewChecks\$(Configuration)\</IntermediateOutputPath>
+    <OutputPath>bin\TexturePreviewChecks\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup><Compile Include="..\Source\TexturePreview.cs" /><Compile Include="TexturePreviewChecks.cs" /></ItemGroup>
+</Project>

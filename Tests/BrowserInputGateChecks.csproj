@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><OutputType>Exe</OutputType><EnableDefaultCompileItems>false</EnableDefaultCompileItems><IntermediateOutputPath>obj\BrowserInputGateChecks\$(Configuration)\</IntermediateOutputPath><OutputPath>bin\BrowserInputGateChecks\</OutputPath></PropertyGroup>
+  <ItemGroup><Compile Include="..\Source\BrowserInputGate.cs" /><Compile Include="..\Source\BrowserListLayout.cs" /><Compile Include="BrowserInputGateChecks.cs" /></ItemGroup>
+</Project>

@@ -1,0 +1,112 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyTitle>ShaderStripMod</AssemblyTitle>
+    <AssemblyName>ShaderStripMod</AssemblyName>
+    <AssemblyVersion>1.29.29.0</AssemblyVersion>
+    <FileVersion>1.29.29.0</FileVersion>
+    <Version>1.29.29</Version>
+    <DebugType>portable</DebugType>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <HollowKnightRefs Condition="'$(HollowKnightRefs)' == '' and Exists('$(MSBuildThisFileDirectory)HollowKnightManaged\Assembly-CSharp.dll')">$(MSBuildThisFileDirectory)HollowKnightManaged\</HollowKnightRefs>
+    <HollowKnightRefs Condition="'$(HollowKnightRefs)' == '' and Exists('C:\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_Data\Managed\Assembly-CSharp.dll')">C:\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_Data\Managed\</HollowKnightRefs>
+    <HollowKnightRefs Condition="'$(HollowKnightRefs)' == ''">$(MSBuildThisFileDirectory)HollowKnightManaged\</HollowKnightRefs>
+  </PropertyGroup>
+
+  <Target Name="ValidateHollowKnightRefs" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(HollowKnightRefs)Assembly-CSharp.dll')" Text="Hollow Knight references not found in '$(HollowKnightRefs)'. Copy the game's Managed DLLs into HollowKnightManaged\ or build with -p:HollowKnightRefs=&quot;&lt;path to hollow_knight_Data\Managed&gt;\&quot;." />
+  </Target>
+
+  <ItemGroup>
+    <Compile Remove="**\ShaderStripMod.v*.cs" />
+    <Compile Remove="backups-history\**\*.cs" />
+    <Compile Remove="Tests\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(HollowKnightRefs)Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MMHOOK_Assembly-CSharp">
+      <HintPath>$(HollowKnightRefs)MMHOOK_Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(HollowKnightRefs)MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MonoMod.Utils">
+      <HintPath>$(HollowKnightRefs)MonoMod.Utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="PlayMaker">
+      <HintPath>$(HollowKnightRefs)PlayMaker.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(HollowKnightRefs)UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.VideoModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.VideoModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(HollowKnightRefs)UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.Physics2DModule">
+      <HintPath>$(HollowKnightRefs)UnityEngine.Physics2DModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(RuntimeAudit)' == 'true'">
+    <DefineConstants>$(DefineConstants);RUNTIME_AUDIT</DefineConstants>
+    <OutputPath>bin\RuntimeAudit\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RuntimeAudit)' == 'true'">
+    <Compile Include="Tests\RuntimeAudit\StableRuntimeAudit.cs" />
+  </ItemGroup>
+</Project>
+
+
+
+
+
+
+
+

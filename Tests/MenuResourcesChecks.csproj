@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><TargetFramework>net472</TargetFramework><OutputType>Exe</OutputType><EnableDefaultCompileItems>false</EnableDefaultCompileItems><OutputPath>bin\MenuResourcesChecks\</OutputPath><IntermediateOutputPath>obj\MenuResourcesChecks\</IntermediateOutputPath></PropertyGroup>
+<ItemGroup><Compile Include="..\Source\MenuResources.cs" /><Compile Include="..\Source\MenuResourcePolicy.cs" /><Compile Include="..\Source\MenuTk2d.cs" /><Compile Include="MenuResourcesChecks.cs" /></ItemGroup>
+</Project>

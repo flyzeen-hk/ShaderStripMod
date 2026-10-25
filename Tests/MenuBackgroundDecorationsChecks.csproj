@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><TargetFramework>net472</TargetFramework><OutputType>Exe</OutputType><EnableDefaultCompileItems>false</EnableDefaultCompileItems><LangVersion>latest</LangVersion><OutputPath>bin\MenuBackgroundDecorationsChecks\</OutputPath><IntermediateOutputPath>obj\MenuBackgroundDecorationsChecks\</IntermediateOutputPath></PropertyGroup>
+<ItemGroup><Compile Include="..\Source\MenuBackgroundDecorations.cs" /><Compile Include="MenuBackgroundDecorationsChecks.cs" /></ItemGroup>
+</Project>

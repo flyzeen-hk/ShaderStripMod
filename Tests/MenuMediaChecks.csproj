@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><TargetFramework>net472</TargetFramework><OutputType>Exe</OutputType><EnableDefaultCompileItems>false</EnableDefaultCompileItems><OutputPath>bin\MenuMediaChecks\</OutputPath></PropertyGroup>
+<ItemGroup><Compile Include="..\Source\GifAnimation.cs" /><Compile Include="..\Source\MenuMediaPolicy.cs" /><Compile Include="..\Source\MenuMediaPlayback.cs" /><Compile Include="..\Source\MenuValueOverride.cs" /><Compile Include="..\Source\CustomMenu.cs" /><Compile Include="..\Source\CustomMenuStyle.cs" /><Compile Include="..\Source\UiLocalization.cs" /><Compile Include="MenuMediaChecks.cs" /><None Include="GifFixtures\*" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>

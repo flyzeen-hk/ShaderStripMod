@@ -1,0 +1,41 @@
+# Build output
+bin/
+obj/
+
+# Local game references (copy of hollow_knight_Data\Managed)
+HollowKnightManaged/
+
+# Local backups and release artifacts
+backups-history/
+dist/
+*.zip
+
+# IDE and user files
+.vs/
+*.user
+*.suo
+
+# Runtime user data: never commit
+background-images/
+menu-media/
+sprite-masks/
+replacements/
+replacements-experimental/
+exports/
+*.settings.txt
+*.preserve.txt
+*.visual-rules.txt
+*.sprite-dump.txt
+ShaderStripMod.experimental.*
+
+# Logs and internal QA material
+QA/
+Tests/LiveQA/
+Tests/RuntimeAudit/*/
+*.log
+Player.log
+ModLog.txt
+QA_REPORT_*.md
+PART0_STATUS.md
+HANDOFF_*.md
+Tests.original.txt
