@@ -6,6 +6,8 @@ A capture and visual-isolation tool for Hollow Knight: chroma-key backgrounds, s
 
 **English** · [Русский](#русский)
 
+**Download:** [ShaderStripMod 1.29.30 — release notes and ZIP](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). This is a pre-release: live gameplay testing is still pending.
+
 ## English
 
 ### What it does
@@ -37,7 +39,7 @@ It is intended for screenshots, video, streams and visual projects, not for a no
    (create the `ShaderStripMod` folder if it does not exist).
 4. Start the game.
 
-The mod is not yet listed in ModLinks. After it is listed, installing and updating through Lumafly will be the recommended route.
+The mod is not yet listed in ModLinks. Download the current pre-release from the [v1.29.30 release page](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). After it is listed in ModLinks, installing and updating through Lumafly will be the recommended route.
 
 The release ZIP contains only `ShaderStripMod.dll`, `README.md`, `CHANGELOG.md` and `LICENSE`. It does not contain QA logs, screenshots, user settings or media.
 
@@ -131,6 +133,8 @@ MIT. See [LICENSE](LICENSE).
 
 ## Русский
 
+**Скачать:** [ShaderStripMod 1.29.30 — описание версии и ZIP](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). Это pre-release: живой игровой тест ещё не пройден.
+
 ### Что делает мод
 
 ShaderStripMod — инструмент для съёмки и визуального выделения в Hollow Knight, а не обычная замена косметических ассетов. Он работает с живой сценой Unity:
@@ -160,7 +164,7 @@ ShaderStripMod — инструмент для съёмки и визуальн�
    (папку `ShaderStripMod` создайте, если её нет).
 4. Запустите игру.
 
-Мод пока не добавлен в ModLinks. После добавления установка и обновление через Lumafly будут рекомендованным способом.
+Мод пока не добавлен в ModLinks. Текущую pre-release-сборку можно скачать со [страницы релиза v1.29.30](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). После добавления в ModLinks установка и обновление через Lumafly будут рекомендованным способом.
 
 Релизный ZIP содержит только `ShaderStripMod.dll`, `README.md`, `CHANGELOG.md` и `LICENSE`. В нём нет QA-логов, скриншотов, пользовательских настроек и медиа.
 
