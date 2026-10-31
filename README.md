@@ -242,7 +242,7 @@ dotnet run --project Tests/MenuBackgroundDecorationsChecks.csproj -c Release
 dotnet run --project Tests/CameraPinChecks.csproj -c Release
 ```
 
-Стабильная 1.29.30 проходит 157 581 assertion в этих восьми проектах. Большинство — попиксельные сравнения GIF и preview, они не заменяют живой игровой тест.
+Стабильная 1.29.30 проходит 157 583 assertion в этих восьми проектах. Большинство — попиксельные сравнения GIF и preview, они не заменяют живой игровой тест.
 
 ### Сообщения об ошибках
 
