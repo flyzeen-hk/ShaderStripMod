@@ -131,6 +131,7 @@ namespace ShaderStripMod
                 string trash = Path.Combine(backgroundImagesDirectory, "removed");
                 Directory.CreateDirectory(trash);
                 File.Move(fullPath, Path.Combine(trash, Guid.NewGuid().ToString("N") + "_" + fileName));
+                backgroundTrashDirty = true;
                 bool wasSelected = string.Equals(backgroundImageRelativePath, fileName, StringComparison.OrdinalIgnoreCase);
                 if (wasSelected)
                 {

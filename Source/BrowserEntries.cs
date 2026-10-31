@@ -38,6 +38,7 @@ namespace ShaderStripMod
             }
 
             textureBrowserNeedsRefresh = false;
+            preserveManagerRuntimeReportDirty = true;
             Log("ShaderStripMod preserve manager refreshed: " + GetTotalPreserveRuleCount() + " rules.");
         }
 

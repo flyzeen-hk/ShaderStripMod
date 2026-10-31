@@ -1,16 +1,28 @@
 # ShaderStripMod: структура, взаимодействия и план развития
 
-Дата обновления: 2026-10-25  
-Текущая версия по исходникам: `v1.29.29`  
+Дата обновления: 2026-10-31
+Текущая версия по исходникам: `v1.29.30`
 Главный класс: `ShaderStripMod`, физически разделённый на тематические `partial`-файлы в `Source/`
 
-## Стабильная 1.29.29
+## Стабильная 1.29.30
+
+`Source/RenderStatePolicy.cs` делит сцену на три состояния: меню, gameplay с героем и gameplay/переход без героя. `Rendering.ApplyStrip` в третьем состоянии больше не вызывает menu-ветку: восстанавливает предыдущий menu-фон и ждёт `HeroController.Start`. Это закрывает риск применения menu-маски к игровым камерам во время загрузки, смерти или нестандартной сцены.
+
+F8 теперь игнорируется при открытом F9 (`BrowserInputPolicy.ShouldToggleCameraPin`); камера управляется кнопкой в F9 → Settings. `DisableVisuals` вызывает только `RestoreVisuals`, поэтому F12 выключает и включает визуальный режим, не снимая фиксацию камеры. Сама фиксация по-прежнему освобождается при смене сцены, смерти, hazard death, переходе, катсцене, выходе из игры и выгрузке мода.
+
+`Source/PreserveDiagnostics.cs` и `Source/PreserveDiagnosticsUi.cs` добавляют счётчики `SyncPreservedRendererDraws`/полного scan (matched, drawn, blocked, skips by draw/particle limit, причины) в Performance и отчёт по выбранному правилу в Rules: сколько renderer-ов совпало, сколько в сцене, сколько пригодно к дорисовке, сколько в кэше, какой renderer выбран, его путь, слой, активные правила и причина пропуска. Отчёт явно говорит, что сопоставление идёт по renderer identity, пути, сцене и asset-именам, а не по смысловому типу объекта. Кэш отчёта сбрасывается при смене сцены, изменении правил и переключении F12; при выключенных визуалах счётчики очищены, а отчёт помечен как сухая проверка загруженных renderer-ов.
+
+`Source/MediaTrashPolicy.cs` и `Source/MediaTrash.cs` управляют подпапками `background-images/removed` и `menu-media/removed`: список файлов с размером, Restore без перезаписи (имя при конфликте получает суффикс ` (2)`), удаление одного файла и Empty trash — оба удаления требуют повторного подтверждения. UI находится в F9 → Settings и F9 → Menu design.
+
+Сборка 1.29.30 проходит с 0 warnings/0 errors; восемь проектов дают 157 583 assertion. Живой игровой прогон этой сборки ещё не выполнен: камера, F12 и переходы проверены заменами Unity/game API, а не реальной сессией.
+
+## Предыдущая стабильная 1.29.29
 
 Добавлена фиксация текущей игровой камеры: F8 или F9 → Settings / «Настройки». Повторное нажатие возвращает слежение. `CameraPin.cs` удерживает мировую позицию, временно замораживая только расчёт слежения внутри CameraController.LateUpdate; штатные режимы FOLLOWING/LOCKED сохраняются. Смена комнаты, смерть, переходы, катсцены, F12 и выгрузка освобождают камеру. Координаты и состояние фиксации не записываются в настройки.
 
 F9 имеет непрозрачную подложку и видимую активную вкладку. `RuleControlsLayout.cs` размещает кнопки правил без пересечений; Rules прокручивается целиком, включая информацию. Настройки камеры и паузы расположены до библиотеки изображений, длинные переключатели переносятся, излишняя пустая прокрутка убрана. Ограничения PNG/JPG проверяются до декодирования также для обычного игрового фона. Итоги восьми проектов проверок и ограничения игрового прогона зафиксированы в локальном QA-отчёте; публичный репозиторий содержит README и CHANGELOG без QA-логов.
 
-## Предыдущая стабильная 1.29.28
+## Ранее: стабильная 1.29.28
 
 Исправлены границы предпросмотра и освобождение захвата мыши, наложение счётчика на строки списка, блокировка ввода меню через сохранённый EventSystem, накопительное затемнение текста при переходах, восстановление оформления и освобождение медиа. Видео получает обычный абсолютный Windows-путь с кириллицей. Настройки и preserve-списки сохраняются через `AtomicTextFile` с сохранением предыдущей копии. Повторное назначение камер исключает камеры render-to-texture и выбирает одну игровую камеру для фона и сохранённых объектов.
 
@@ -66,8 +78,14 @@ ShaderStripMod сейчас похож на runtime chroma-key / green-screen м
 - `Source/TextureExport.cs`, `Source/DiagnosticsAndIdentity.cs`  
   Экспорт/preview/metadata, F10 dump, имена, пути и диагностические helpers.
 
-- `Source/Rendering.cs`, `Source/PreservedRendering.cs`  
-  ApplyStrip, камеры/фон/слои, CommandBuffer, projectile watchers и preserved proxies.
+- `Source/Rendering.cs`, `Source/PreservedRendering.cs`, `Source/RenderStatePolicy.cs`
+  ApplyStrip, три состояния сцены, камеры/фон/слои, CommandBuffer, projectile watchers и preserved proxies.
+
+- `Source/PreserveDiagnostics.cs`, `Source/PreserveDiagnosticsUi.cs`
+  Счётчики matched/drawn/blocked/limit для preserved renderers и отчёт по выбранному правилу в F9.
+
+- `Source/MediaTrash.cs`, `Source/MediaTrashPolicy.cs`
+  Список, восстановление, окончательное удаление и размер корзин `background-images/removed` и `menu-media/removed`.
 
 - `Source/Models.cs`, `Source/RuntimeLoop.cs`  
   Существующие вложенные модели и компоненты ScanBehaviour/ProjectileVisibilityWatcher.
@@ -181,6 +199,9 @@ ShaderStripMod сейчас похож на runtime chroma-key / green-screen м
 - `exports/` или папка Downloads  
   PNG-экспорты и metadata `.txt` к ним.
 
+- `background-images/removed/`, `menu-media/removed/`
+  Корзины удалённых изображений и медиа. F9 → Settings и F9 → Menu design показывают файлы, их размер, Restore, Delete permanently и Empty trash с повторным подтверждением. Restore не перезаписывает существующий файл.
+
 ## Основной жизненный цикл
 
 Упрощенная схема:
@@ -224,11 +245,11 @@ Unload / DisableVisuals
 
 ## Горячие клавиши
 
-- `F8` - закрепить игровую камеру в текущей точке / вернуть слежение за персонажем (с 1.29.29).
+- `F8` - закрепить игровую камеру в текущей точке / вернуть слежение за персонажем (с 1.29.29). При открытом F9 клавиша игнорируется; с 1.29.30 фиксация управляется кнопкой F9 → Settings.
 - `F9` - открыть/закрыть Texture Browser; по умолчанию открытое окно ставит игровое время на паузу.
 - `F10` - dump loaded sprites/textures/materials/renderers.
 - `F11` - перезагрузить `ShaderStripMod.preserve.txt` и `ShaderStripMod.visual-rules.txt`.
-- `F12` - включить/выключить визуальный режим мода.
+- `F12` - включить/выключить визуальный режим мода. С 1.29.30 фиксацию камеры не снимает.
 
 Режим `Nearby` доступен внутри Texture Browser через `F9`. Его прежняя дублирующая клавиша F8 удалена в 1.29.8; с 1.29.29 F8 управляет закреплением камеры.
 
@@ -335,12 +356,14 @@ UI:
 
 `ApplyStrip` - центральная точка визуального режима.
 
-В menu-сценах или когда слой героя еще неизвестен:
+`RenderStatePolicy.Classify` различает три состояния.
+
+В menu-сценах:
 - вызывается `ApplyMenuBackground`;
 - камеры получают выбранный цвет фона;
 - menu mask старается оставить видимыми нужные UI/menu слои.
 
-В gameplay-сценах:
+В gameplay с героем:
 - определяется `heroLayer`;
 - собирается `visibleMask`, сейчас это слой героя + слой `Attack`;
 - если раньше был menu-mode, старое состояние камер восстанавливается;
@@ -349,6 +372,12 @@ UI:
 - `PromoteEffects`;
 - `ApplyCameraMask`;
 - `StripAllMaterials`.
+
+В gameplay/переходе без героя (с 1.29.30):
+- `heroLayer` и `visibleMask` сбрасываются;
+- `RestoreMenuBackgroundIfActive` возвращает прежние фон, clearFlags и маски камер;
+- menu-маска не применяется к игровым камерам;
+- мод ждёт `HeroController.Start` и следующего `ApplyStrip`.
 
 ## Камеры и фон
 
@@ -390,6 +419,8 @@ UI:
 - `ParticleSystemRenderer` без projectile rule считается дорогим и обычно не дорисовывается;
 - renderer должен быть активен, включен, относиться к текущей gameplay scene и не быть proxy.
 
+С 1.29.30 Performance показывает matched/drawn/blocked, пропуски по draw/particle-лимитам и разбивку причин. Rules для выбранного правила показывает matched, in-scene, drawable, cached и выбранный renderer с путём, слоем и активными правилами. Это диагностика, а не семантическое распознавание объектов.
+
 ## PromoteEffects
 
 Мод отдельно пытается сохранить часть эффектов героя:
@@ -428,10 +459,10 @@ UI:
 Правая панель:
 - `Info` - подробности выбранной строки; для projectile/preserved renderer показывает диагностику причин видимости и дорисовки.
 - `Preview` - просмотр texture/sprite с zoom/pan.
-- `Rules` - кнопки добавления/удаления renderer/asset/path/projectile rules для выбранной строки.
+- `Rules` - кнопки добавления/удаления renderer/asset/path/projectile rules для выбранной строки; live report по выбранному правилу с количеством совпадений, выбранным renderer и причинами пропуска.
 - `Export` - экспорт PNG/atlas и путь экспорта.
-- `Settings` - цвет фона.
-- `Performance` - профили нагрузки, projectile performance, scheduler/cache/diagnostics settings и счетчики.
+- `Settings` - язык, камера, пауза, цвет/изображение фона и корзина изображений.
+- `Performance` - профили нагрузки, projectile performance, scheduler/cache/diagnostics settings, счетчики и статистика preserve scan.
 
 ## Performance
 
@@ -617,7 +648,7 @@ Time source:
 - CommandBuffer/proxy fallback сложный: возможны отличия порядка отрисовки, sorting, particle behavior и shader-specific эффектов.
 - Низкий лимит draw renderers или projectile particle sources может скрыть часть preserved объектов при широких правилах; слишком высокий лимит может вызвать лаги.
 - Некоторые ignored rules (`_Enemies`, `sprite_set_*`, `GG_Arena_Prefab/BG`) защищают производительность, но могут удивлять при ручной настройке.
-- Нет автоматических тестов парсера preserve/settings и matching-логики.
+- Parser preserve/settings и matching покрыты базовыми regression/persistence проверками, но полноценных migration-тестов и тестов на реальных пользовательских файлах нет.
 - Бэкапы делаются вручную в рабочем процессе, а не встроены как обязательная versioned migration система.
 
 ## Проблемы, которые могут появиться при новых функциях
@@ -649,9 +680,8 @@ Time source:
    - Далее: новые visual-rule resolver/cache создавать отдельными классами, а не новыми partial-блоками.
 
 4. Диагностика правил
-   - Для каждого правила показывать `matched renderers: N`.
-   - Отдельно показывать ignored/effective/expensive/skipped.
-   - Добавить причину, почему renderer не был сохранен.
+   - Выполнено в 1.29.30: для правила показывается `matched renderers`, отдельно in-scene/drawable/cached/skipped и причина, почему renderer не дорисован.
+   - Дальше: сортировка и стабильность выбора при одинаковых совпадениях.
 
 5. Entity Presets, очень осторожно
    - Сначала read-only вкладка с текущими видимыми группами.

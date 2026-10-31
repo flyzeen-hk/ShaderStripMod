@@ -62,6 +62,52 @@ namespace ShaderStripMod
             }
             MenuDesignLabel(ref y,width,"PNG/JPG backgrounds and logos, animated GIF, MP4/WebM/MOV/M4V/AVI video. Video is silent and looped; codecs depend on Unity/Windows. MP4 H.264 is the preferred format.");
             MenuDesignLabel(ref y,width,"F9 pause also freezes menu animation. Media removal keeps a recoverable copy in menu-media/removed.");
+            RefreshMenuTrashFiles();
+            MenuDesignLabel(ref y,width,"Removed menu media (trash)");
+            MenuDesignLabel(ref y,width,menuTrashFiles.Count==0
+                ? "Menu media trash is empty."
+                : "Trash occupies "+MediaTrashPolicy.FormatSize(menuTrashBytes)+" in "+menuTrashFiles.Count+" file(s). Restore never overwrites an existing file.");
+            string restoreTrashMedia=null,requestDeleteTrashMedia=null,deleteTrashMedia=null;
+            bool cancelDeleteTrashMedia=false;
+            bool emptyTrashMedia=false;
+            for(int i=0;i<menuTrashFiles.Count;i++)
+            {
+                RemovedMediaFile item=menuTrashFiles[i];
+                MenuDesignLabel(ref y,width,item.DisplayName+"  ("+MediaTrashPolicy.FormatSize(item.Size)+")");
+                float trashHalf=Mathf.Max(40,(width-6)/2);
+                if(string.Equals(pendingDeleteMenuTrash,item.Path,StringComparison.OrdinalIgnoreCase))
+                {
+                    MenuDesignLabel(ref y,width,"Click Delete permanently again to confirm. This cannot be undone.");
+                    if(UiButton(new Rect(0,y,trashHalf,28),"Delete permanently"))deleteTrashMedia=item.Path;
+                    if(UiButton(new Rect(trashHalf+6,y,trashHalf,28),"Cancel"))cancelDeleteTrashMedia=true;
+                    y+=36;
+                    continue;
+                }
+
+                if(UiButton(new Rect(0,y,trashHalf,28),"Restore"))restoreTrashMedia=item.Path;
+                if(UiButton(new Rect(trashHalf+6,y,trashHalf,28),"Delete permanently"))requestDeleteTrashMedia=item.Path;
+                y+=36;
+            }
+            if(menuTrashFiles.Count>0)
+            {
+                if(!confirmEmptyMenuTrash)
+                {
+                    if(UiButton(new Rect(0,y,Mathf.Min(180,width),28),"Empty menu media trash..."))
+                    {
+                        confirmEmptyMenuTrash=true;
+                        customMenuMessage="Click Empty trash again to permanently delete "+menuTrashFiles.Count+" file(s).";
+                    }
+                    y+=36;
+                }
+                else
+                {
+                    MenuDesignLabel(ref y,width,"Permanently delete "+menuTrashFiles.Count+" file(s), "+MediaTrashPolicy.FormatSize(menuTrashBytes)+"? This cannot be undone.");
+                    float confirmHalf=Mathf.Max(40,(width-6)/2);
+                    if(UiButton(new Rect(0,y,confirmHalf,28),"Empty trash"))emptyTrashMedia=true;
+                    if(UiButton(new Rect(confirmHalf+6,y,confirmHalf,28),"Cancel"))confirmEmptyMenuTrash=false;
+                    y+=36;
+                }
+            }
             if(!visualsActive)MenuDesignLabel(ref y,width,"Enable the mod visuals with F12 to preview your menu.");
             GUI.EndScrollView();customMenuContentHeight=y+16;
             bool changed=enabled!=customMenuEnabled||paused!=customMenuPaused||layout!=customMenuLayout||color!=customMenuTextColor||Mathf.Abs(scale-customMenuTextScale)>.001f;
@@ -76,6 +122,11 @@ namespace ShaderStripMod
             if(clearLogo){customMenuLogoFile="";ReleaseCustomMenuLogo();SaveExportSettings();}
             if(reset){customMenuEnabled=false;customMenuFile=customMenuLogoFile="";customMenuPaused=false;customMenuLayout="Cover";customMenuTextColor="Original";customMenuTextScale=1;ReleaseCustomMenu();SaveExportSettings();UpdateImageBackground();}
             if(remove!=null)RemoveCustomMenuMedia(remove);
+            if(restoreTrashMedia!=null)RestoreMenuTrashFile(restoreTrashMedia);
+            if(cancelDeleteTrashMedia)pendingDeleteMenuTrash=null;
+            else if(requestDeleteTrashMedia!=null)pendingDeleteMenuTrash=requestDeleteTrashMedia;
+            else if(deleteTrashMedia!=null)DeleteMenuTrashFile(deleteTrashMedia);
+            if(emptyTrashMedia)EmptyMenuTrash();
             if(chooseMedia)ChooseCustomMenuMedia(false);if(chooseLogo)ChooseCustomMenuMedia(true);
         }
     }

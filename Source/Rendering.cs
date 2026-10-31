@@ -11,7 +11,10 @@ namespace ShaderStripMod
     {
         internal void ApplyStrip()
         {
-            if (IsMenuScene(GetActiveSceneName()))
+            HeroController hero = HeroController.SilentInstance;
+            RenderSceneState state = RenderStatePolicy.Classify(IsMenuScene(GetActiveSceneName()), hero != null);
+
+            if (state == RenderSceneState.Menu)
             {
                 heroLayer = -1;
                 visibleMask = 0;
@@ -19,22 +22,23 @@ namespace ShaderStripMod
                 return;
             }
 
-            RefreshHeroLayer();
-
-            if (heroLayer < 0 || visibleMask == 0)
+            if (state == RenderSceneState.GameplayWithoutHero)
             {
-                ApplyMenuBackground();
+                heroLayer = -1;
+                visibleMask = 0;
+                RestoreMenuBackgroundIfActive();
                 return;
             }
 
-            if (menuBackgroundMode)
+            SetHeroLayer(hero.gameObject.layer);
+
+            if (heroLayer < 0 || visibleMask == 0)
             {
-                RestoreBackgrounds();
-                RestoreCameraClearFlags();
-                RestoreCameraMasks();
-                menuBackgroundMode = false;
+                RestoreMenuBackgroundIfActive();
+                return;
             }
 
+            RestoreMenuBackgroundIfActive();
             RestorePromotedEffects();
             PromotePreservedRenderers();
             PromoteEffects();
@@ -42,25 +46,17 @@ namespace ShaderStripMod
             StripAllMaterials();
         }
 
-        private void RefreshHeroLayer()
+        private void RestoreMenuBackgroundIfActive()
         {
-            if (IsMenuScene(GetActiveSceneName()))
-            {
-                heroLayer = -1;
-                visibleMask = 0;
-                return;
-            }
-
-            if (heroLayer >= 0 && visibleMask != 0)
+            if (!menuBackgroundMode)
             {
                 return;
             }
 
-            HeroController hero = HeroController.SilentInstance;
-            if (hero != null)
-            {
-                SetHeroLayer(hero.gameObject.layer);
-            }
+            RestoreBackgrounds();
+            RestoreCameraClearFlags();
+            RestoreCameraMasks();
+            menuBackgroundMode = false;
         }
 
         private void SetHeroLayer(int layer)

@@ -270,6 +270,9 @@ namespace ShaderStripMod
         private readonly Dictionary<Camera, CommandBuffer> preservedRendererCommandBuffers = new Dictionary<Camera, CommandBuffer>();
         private readonly Dictionary<Renderer, PreservedRendererProxy> preservedRendererProxies = new Dictionary<Renderer, PreservedRendererProxy>();
         private readonly List<Renderer> preservedRendererDrawSources = new List<Renderer>();
+        private readonly PreserveRunStats preserveRunStats = new PreserveRunStats();
+        private Renderer preserveLastDrawnRenderer;
+        private Renderer preserveLastSkippedRenderer;
         private readonly List<Renderer> proxyRemoveBuffer = new List<Renderer>();
         private readonly List<int> filteredTextureBrowserIndexes = new List<int>();
         private readonly Dictionary<int, string> objectPathCache = new Dictionary<int, string>();
@@ -513,6 +516,7 @@ namespace ShaderStripMod
             }
 
             visualsActive = true;
+            preserveManagerRuntimeReportDirty = true;
             ApplyStrip();
             Log("ShaderStripMod visuals applied.");
         }
@@ -524,15 +528,21 @@ namespace ShaderStripMod
                 return;
             }
 
-            RestoreAll();
+            RestoreVisuals("DisableVisuals");
             visualsActive = false;
-            Log("ShaderStripMod visuals reverted.");
+            preserveManagerRuntimeReportDirty = true;
+            Log("ShaderStripMod visuals reverted; camera pin kept.");
         }
 
         private void RestoreAll()
         {
             ReleaseCameraPin();
-            RestorePart0RuntimeGate("RestoreAll");
+            RestoreVisuals("RestoreAll");
+        }
+
+        private void RestoreVisuals(string reason)
+        {
+            RestorePart0RuntimeGate(reason);
             ReleaseCustomMenu();ReleaseMenuObjectPreview();
             ReleaseImageBackground();
             RestoreShaders();
@@ -588,6 +598,7 @@ namespace ShaderStripMod
             heroLayer = -1;
             visibleMask = 0;
             textureBrowserNeedsRefresh = true;
+            preserveManagerRuntimeReportDirty = true;
             lastPromoteLogTime = 0f;
             UpdateTextureBrowserMenuInputBlocker();
             Log("ShaderStripMod scene changed to " + sceneName + ".");

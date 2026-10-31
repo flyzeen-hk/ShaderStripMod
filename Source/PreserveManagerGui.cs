@@ -143,6 +143,8 @@ namespace ShaderStripMod
                 remove = UiButton(new Rect(0, y, Mathf.Min(140f, width), 26f), "Remove Rule");
                 y += 34f;
                 DrawPreserveManagerWrappedLabel(ref y, width, BuildPreserveManagerInfo(entry));
+                DrawPreserveManagerWrappedLabel(ref y, width, BuildPreserveRuntimeSummary());
+                DrawPreserveManagerWrappedLabel(ref y, width, GetPreserveManagerRuntimeReport(entry));
             }
             preserveManagerContentHeight = y + 8f;
             GUI.EndScrollView();
@@ -455,6 +457,7 @@ namespace ShaderStripMod
             }
 
             RefreshPreserveManagerEntries();
+            preserveManagerRuntimeReportDirty = true;
         }
 
         private string BackupPreserveFile(string reason)

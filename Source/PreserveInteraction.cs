@@ -212,57 +212,55 @@ namespace ShaderStripMod
 
         private string GetPreservedRendererSkipReason(Renderer renderer, string sceneName)
         {
-            if (renderer == null)
+            return PreserveRunStats.Describe(ClassifyPreservedRenderer(renderer, sceneName));
+        }
+
+        private string BuildRendererPreserveReasonList(Renderer renderer)
+        {
+            if (renderer == null || renderer.gameObject == null)
             {
-                return "renderer is missing";
+                return "none";
             }
 
-            if (renderer.gameObject == null)
+            StringBuilder builder = new StringBuilder();
+            bool projectile;
+            bool rendererRule = RendererHasPreservedRendererRule(renderer, out projectile);
+            AppendPreserveReason(builder, projectile ? "projectileRenderer" : "renderer", rendererRule);
+            string path = CleanUnityPath(GetObjectPath(renderer.gameObject));
+            AppendPreserveReason(builder, "path", IsExactPreservedObjectPath(path));
+            AppendPreserveReason(builder, "groupPath", IsGroupPreservedObjectPath(path));
+            AppendPreserveReason(builder, "projectilePath", IsProjectileObjectPath(path));
+            AppendPreserveReason(builder, "mask", HasActiveSpriteMask(renderer));
+
+            SpriteRenderer spriteRenderer = renderer as SpriteRenderer;
+            Sprite sprite = spriteRenderer != null ? spriteRenderer.sprite : null;
+            bool spriteRule = IsPreservedSprite(sprite);
+            bool textureRule = sprite != null && IsPreservedTexture(sprite.texture);
+            bool assetRule = IsPreservedAssetName(sprite) || IsPreservedAssetName(sprite != null ? sprite.texture : null);
+            bool materialRule = false;
+
+            Material[] materials = renderer.sharedMaterials;
+            if (materials != null)
             {
-                return "renderer has no GameObject";
+                for (int i = 0; i < materials.Length; i++)
+                {
+                    Material material = materials[i];
+                    if (material == null)
+                    {
+                        continue;
+                    }
+
+                    materialRule = materialRule || IsPreservedMaterial(material);
+                    textureRule = textureRule || IsPreservedTexture(GetMaterialMainTexture(material));
+                    assetRule = assetRule || IsPreservedAssetName(material) || IsPreservedAssetName(GetMaterialMainTexture(material));
+                }
             }
 
-            if (IsProxyRenderer(renderer))
-            {
-                return "renderer is ShaderStripMod proxy";
-            }
-
-            if (!renderer.enabled)
-            {
-                return "renderer disabled";
-            }
-
-            if (!renderer.gameObject.activeInHierarchy)
-            {
-                return "object inactive";
-            }
-
-            if (IsRendererLayerAlreadyVisible(renderer) && !IsRendererPromotedByMod(renderer))
-            {
-                return "renderer layer is already visible to the main camera";
-            }
-
-            if (IsExpensivePreservedRenderer(renderer))
-            {
-                return "particle renderer without projectile path/renderer rule";
-            }
-
-            if (!IsRendererInCurrentScene(renderer, sceneName))
-            {
-                return "scene mismatch or non-gameplay scene";
-            }
-
-            if (!RendererIsPreserved(renderer))
-            {
-                return "no matching preserve rule";
-            }
-
-            if (!RendererHasMaterials(renderer))
-            {
-                return "renderer has no shared materials";
-            }
-
-            return "none";
+            AppendPreserveReason(builder, "sprite", spriteRule);
+            AppendPreserveReason(builder, "texture", textureRule);
+            AppendPreserveReason(builder, "material", materialRule);
+            AppendPreserveReason(builder, "assetName", assetRule);
+            return builder.Length > 0 ? builder.ToString() : "none";
         }
 
         private string FormatBool(bool value)
@@ -887,6 +885,7 @@ namespace ShaderStripMod
             RestorePreservedRendererDraws();
             RestorePreservedRendererProxies();
             MarkPreservedRendererCacheDirty();
+            preserveManagerRuntimeReportDirty = true;
             if (visualsActive)
             {
                 ApplyStrip();

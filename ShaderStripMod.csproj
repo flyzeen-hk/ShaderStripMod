@@ -3,9 +3,9 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyTitle>ShaderStripMod</AssemblyTitle>
     <AssemblyName>ShaderStripMod</AssemblyName>
-    <AssemblyVersion>1.29.29.0</AssemblyVersion>
-    <FileVersion>1.29.29.0</FileVersion>
-    <Version>1.29.29</Version>
+    <AssemblyVersion>1.29.30.0</AssemblyVersion>
+    <FileVersion>1.29.30.0</FileVersion>
+    <Version>1.29.30</Version>
     <DebugType>portable</DebugType>
     <LangVersion>latest</LangVersion>
     <OutputPath>bin\$(Configuration)\</OutputPath>

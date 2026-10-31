@@ -13,6 +13,8 @@ namespace ShaderStripMod
         private string menuMediaDirectory,customMenuMessage="Import a background or logo to create your menu.";
         private readonly List<string> menuMediaFiles=new List<string>();
         private bool menuMediaFilesDirty=true;
+        private bool menuTrashDirty=true;
+        private bool MenuTrashDirty{get{return menuTrashDirty;}set{menuTrashDirty=value;}}
         private MenuMediaPlayback menuPlayback;
         private string menuPlaybackName;
         private Material menuBackgroundMaterial;
@@ -121,6 +123,7 @@ namespace ShaderStripMod
                 {ReleaseMenuPlayback();releasedVideo=true;}
                 string removed=Path.Combine(menuMediaDirectory,"removed");Directory.CreateDirectory(removed);
                 File.Move(path,Path.Combine(removed,Guid.NewGuid().ToString("N")+"_"+name));
+                MenuTrashDirty=true;
                 if(customMenuFile==name){customMenuFile="";ReleaseMenuPlayback();}
                 if(customMenuLogoFile==name){customMenuLogoFile="";ReleaseCustomMenuLogo();}
                 menuMediaFilesDirty=true;

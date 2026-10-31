@@ -2,6 +2,27 @@
 
 All notable changes to the stable line of ShaderStripMod. The project follows semantic versioning in the `1.29.x` series. History before 1.29.28 was not maintained as a public changelog.
 
+## [1.29.30] - 2026-10-31
+
+### Added
+
+- Trash management for removed background images (F9 → Settings) and menu media (F9 → Menu design). Each list shows file names and sizes, Restore never overwrites an existing file, Delete permanently requires a second confirmation for that file, and Empty trash requires a second confirmation before erasing the listed files. The total size of each trash folder is shown.
+- Preserve diagnostics. F9 → Performance now reports how many rule candidates matched, how many renderers were actually drawn, how many were blocked by the draw or particle limits, and a breakdown of skip reasons. F9 → Rules shows a live report for the selected rule: matched, in-scene, drawable and cached counts, the chosen renderer type, path, layer and active rules, and the reason a renderer is not drawn.
+
+### Fixed
+
+- `F8` is ignored while the F9 browser is open. The camera can still be pinned or released from F9 → Settings.
+- `F12` disables the visual mode but keeps the camera pin. The pin is still released on room change, death, transitions, cutscenes and mod unload.
+- `ApplyStrip` now distinguishes three states: title menu, gameplay with a hero, and gameplay or a transition without a hero. In the third state the menu background and menu camera mask are no longer applied to gameplay cameras; the previous menu state is restored and the mod waits for `HeroController.Start`.
+- Preserve diagnostics explain that rules match renderer identity, object path, scene and asset names, not semantic object types. Renderer and particle limits are visible instead of silently dropping objects.
+- Preserve diagnostics are invalidated after a scene change, a preserve-rule change or an `F12` toggle. Runtime counters are cleared when visuals are disabled, and the selected-rule report states that its counts are a dry scan until visuals are enabled again.
+
+### Verified
+
+- Release build: 0 errors, 0 warnings.
+- Eight test projects: 157,583 assertions, mostly pixel comparisons for GIF and preview code.
+- Camera and transition behavior was checked with Unity/game API substitutes. The new build has **not** yet been tested in a live gameplay session; in-game verification is pending.
+
 ## [1.29.29] - 2026-10-11
 
 ### Added

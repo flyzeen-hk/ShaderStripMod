@@ -72,14 +72,30 @@ namespace ShaderStripMod
                 RefreshActivePreservedPathRenderers(sceneName);
             }
 
+            preserveRunStats.ResetFrame();
+            preserveRunStats.Sources = preservedRendererDrawSources.Count;
+            if (preserveRunStats.CandidateMatched < preserveRunStats.Sources)
+            {
+                preserveRunStats.CandidateMatched = preserveRunStats.Sources;
+            }
+
+            preserveLastDrawnRenderer = null;
+            preserveLastSkippedRenderer = null;
             bool sawStaleRenderer = false;
             int drawnRenderers = 0;
             for (int i = 0; i < preservedRendererDrawSources.Count; i++)
             {
                 Renderer renderer = preservedRendererDrawSources[i];
-                if (!CanDrawPreservedRenderer(renderer, sceneName))
+                PreserveSkipKind skip = ClassifyPreservedRenderer(renderer, sceneName);
+                if (skip != PreserveSkipKind.Drawable)
                 {
                     sawStaleRenderer = true;
+                    preserveRunStats.RecordStale(skip);
+                    if (preserveLastSkippedRenderer == null)
+                    {
+                        preserveLastSkippedRenderer = renderer;
+                    }
+
                     continue;
                 }
 
@@ -92,11 +108,18 @@ namespace ShaderStripMod
                     drawnRenderers++;
                 }
 
+                if (drawnRenderers > 0 && preserveLastDrawnRenderer == null)
+                {
+                    preserveLastDrawnRenderer = renderer;
+                }
+
                 if (drawnRenderers >= maxPreservedRenderers)
                 {
                     break;
                 }
             }
+
+            preserveRunStats.Drawn = drawnRenderers;
 
             if (sawStaleRenderer)
             {
@@ -117,6 +140,7 @@ namespace ShaderStripMod
         private void RebuildPreservedRendererDrawSources(string sceneName)
         {
             preservedRendererDrawSources.Clear();
+            preserveRunStats.ResetScan();
             preservedRendererCacheSceneName = sceneName;
             preservedRendererCacheDirty = false;
             nextPreservedRendererCacheRebuildTime = Time.unscaledTime + PreservedRendererCacheRefreshInterval;
@@ -135,12 +159,35 @@ namespace ShaderStripMod
                     continue;
                 }
 
-                AddPreservedRendererDrawSource(renderer);
-                if (preservedRendererDrawSources.Count >= maxPreservedRenderers)
-                {
-                    break;
-                }
+                AddPreservedRendererCandidateDuringScan(renderer);
             }
+
+            preserveRunStats.Sources = preservedRendererDrawSources.Count;
+        }
+
+        private void AddPreservedRendererCandidateDuringScan(Renderer renderer)
+        {
+            if (renderer == null || preservedRendererDrawSources.Contains(renderer))
+            {
+                return;
+            }
+
+            preserveRunStats.CandidateMatched++;
+            if (preservedRendererDrawSources.Count >= maxPreservedRenderers)
+            {
+                preserveRunStats.SkippedByDrawLimit++;
+                return;
+            }
+
+            if (IsParticleSystemRenderer(renderer) &&
+                !RendererHasProjectileRendererRule(renderer) &&
+                CountProjectileParticleDrawSources() >= maxProjectileParticleRenderers)
+            {
+                preserveRunStats.SkippedByParticleLimit++;
+                return;
+            }
+
+            preservedRendererDrawSources.Add(renderer);
         }
 
         private bool AddPreservedRendererDrawSource(Renderer renderer)
@@ -452,6 +499,10 @@ namespace ShaderStripMod
 
             preservedRendererCommandBuffers.Clear();
             preservedRendererDrawSources.Clear();
+            preserveRunStats.ResetScan();
+            preserveRunStats.ResetFrame();
+            preserveLastDrawnRenderer = null;
+            preserveLastSkippedRenderer = null;
             preservedRendererCacheSceneName = "";
             nextPreservedRendererCacheRebuildTime = 0f;
             preservedRendererCacheDirty = true;
@@ -462,32 +513,70 @@ namespace ShaderStripMod
             preservedRendererCacheDirty = true;
             nextPreservedRendererCacheRebuildTime = 0f;
             preserveDrawSyncRequested = true;
+            preserveRunStats.ResetScan();
+            preserveLastDrawnRenderer = null;
+            preserveLastSkippedRenderer = null;
         }
 
         private bool CanDrawPreservedRenderer(Renderer renderer, string sceneName)
         {
-            if (renderer == null || renderer.gameObject == null || IsProxyRenderer(renderer))
+            return ClassifyPreservedRenderer(renderer, sceneName) == PreserveSkipKind.Drawable;
+        }
+
+        private PreserveSkipKind ClassifyPreservedRenderer(Renderer renderer, string sceneName)
+        {
+            if (renderer == null)
             {
-                return false;
+                return PreserveSkipKind.MissingRenderer;
             }
 
-            if (!renderer.enabled ||
-                !renderer.gameObject.activeInHierarchy ||
-                (IsRendererLayerAlreadyVisible(renderer) && !IsRendererPromotedByMod(renderer) && !HasActiveSpriteMask(renderer)) ||
-                IsExpensivePreservedRenderer(renderer) ||
-                !IsRoomRenderer(renderer, sceneName) ||
-                !RendererIsPreserved(renderer))
+            if (renderer.gameObject == null)
             {
-                return false;
+                return PreserveSkipKind.MissingObject;
+            }
+
+            if (IsProxyRenderer(renderer))
+            {
+                return PreserveSkipKind.ProxyRenderer;
+            }
+
+            if (!renderer.enabled)
+            {
+                return PreserveSkipKind.Disabled;
+            }
+
+            if (!renderer.gameObject.activeInHierarchy)
+            {
+                return PreserveSkipKind.Inactive;
+            }
+
+            if (IsRendererLayerAlreadyVisible(renderer) && !IsRendererPromotedByMod(renderer) && !HasActiveSpriteMask(renderer))
+            {
+                return PreserveSkipKind.AlreadyVisible;
+            }
+
+            if (IsExpensivePreservedRenderer(renderer))
+            {
+                return PreserveSkipKind.ExpensiveParticle;
+            }
+
+            if (!IsRoomRenderer(renderer, sceneName))
+            {
+                return PreserveSkipKind.OtherScene;
+            }
+
+            if (!RendererIsPreserved(renderer))
+            {
+                return PreserveSkipKind.NoRule;
             }
 
             Material[] materials = renderer.sharedMaterials;
             if (materials == null || materials.Length == 0)
             {
-                return false;
+                return PreserveSkipKind.NoMaterials;
             }
 
-            return true;
+            return PreserveSkipKind.Drawable;
         }
 
         private bool TryUseNormalRendererPipeline(Renderer renderer)

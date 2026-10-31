@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using UnityEngine;
 using MonoMod.RuntimeDetour;
-namespace GlobalEnums { public enum GameState { PLAYING,PAUSED,EXITING_LEVEL } }
+namespace GlobalEnums { public enum GameState { PLAYING,PAUSED,EXITING_LEVEL,CUTSCENE } }
 namespace UnityEngine
 {
     public class Object
@@ -85,7 +85,7 @@ namespace ShaderStripMod
             mod.OnPinnedCameraLateUpdate(c=>c.transform.position=Vector3.zero,controller);Check(Same(controller.transform.position,Vector3.zero),"follow update moves again after release");
             mod.ToggleCameraPin();Check(Hook.created==hooks&&Same(mod.cameraPin.Position,Vector3.zero),"reuse hook and capture new location");
             mod.DisposeCameraPin();Check(!mod.cameraPin.Active&&mod.cameraPinUpdateHook==null&&Hook.disposed==1,"unload releases and disposes hook");
-            foreach(string invalid in new[]{"uninitialized","menu","nohero","dead","hazard","nostate","nogm","nongameplay","exiting","nocameras","nocontroller","disabled","disabledcamera","nocamera","rtt","differenttransform","panning","fade","frozen"})
+            foreach(string invalid in new[]{"uninitialized","menu","nohero","dead","hazard","nostate","nogm","nongameplay","exiting","cutscene","nocameras","nocontroller","disabled","disabledcamera","nocamera","rtt","differenttransform","panning","fade","frozen"})
             {
                 controller=Setup();mod=new ShaderStripMod();
                 switch(invalid)
@@ -93,6 +93,7 @@ namespace ShaderStripMod
                     case "uninitialized":mod.initialized=false;break;case "menu":mod.scene="Menu_Title";break;case "nohero":HeroController.SilentInstance=null;break;
                     case "dead":HeroController.SilentInstance.cState.dead=true;break;case "hazard":HeroController.SilentInstance.cState.hazardDeath=true;break;case "nostate":HeroController.SilentInstance.cState=null;break;
                     case "nogm":GameManager.instance=null;break;case "nongameplay":GameManager.instance.gameplay=false;break;case "exiting":GameManager.instance.gameState=GlobalEnums.GameState.EXITING_LEVEL;break;
+                    case "cutscene":GameManager.instance.gameState=GlobalEnums.GameState.CUTSCENE;break;
                     case "nocameras":GameCameras.instance=null;break;case "nocontroller":GameCameras.instance.cameraController=null;break;
                     case "disabled":controller.isActiveAndEnabled=false;break;case "disabledcamera":controller.cam.isActiveAndEnabled=false;break;case "nocamera":controller.cam=null;break;
                     case "rtt":controller.cam.targetTexture=new object();break;case "differenttransform":controller.cam.transform=new Transform();break;
@@ -100,11 +101,11 @@ namespace ShaderStripMod
                 }
                 Check(mod.GetPinnableCamera()==null,"eligibility rejects "+invalid);mod.ToggleCameraPin();Check(!mod.cameraPin.Active,"pin disabled for "+invalid);
             }
-            foreach(string invalid in new[]{"scene","death","hazard","replacement","destroyed","transition"})
+            foreach(string invalid in new[]{"scene","death","hazard","replacement","destroyed","transition","cutscene"})
             {
                 controller=Setup();mod=new ShaderStripMod();mod.ToggleCameraPin();
                 switch(invalid)
-                {case "scene":mod.scene="RoomB";break;case "death":HeroController.SilentInstance.cState.dead=true;break;case "hazard":HeroController.SilentInstance.cState.hazardDeath=true;break;case "replacement":GameCameras.instance.cameraController=new CameraController();break;case "destroyed":controller.destroyed=true;controller.transform.destroyed=true;break;case "transition":controller.mode=CameraController.CameraMode.PANNING;break;}
+                {case "scene":mod.scene="RoomB";break;case "death":HeroController.SilentInstance.cState.dead=true;break;case "hazard":HeroController.SilentInstance.cState.hazardDeath=true;break;case "replacement":GameCameras.instance.cameraController=new CameraController();break;case "destroyed":controller.destroyed=true;controller.transform.destroyed=true;break;case "transition":controller.mode=CameraController.CameraMode.PANNING;break;case "cutscene":GameManager.instance.gameState=GlobalEnums.GameState.CUTSCENE;break;}
                 mod.UpdateCameraPin();Check(!mod.cameraPin.Active,"auto release after "+invalid);
             }
             controller=Setup();mod=new ShaderStripMod();mod.ToggleCameraPin();

@@ -520,6 +520,57 @@ namespace ShaderStripMod
                 y += rowHeight + 6f;
             }
             DrawBackgroundSettingsLabel(ref y, width, "Remove clears an image from the list. A recoverable copy stays in background-images/removed.");
+            RefreshBackgroundTrashFiles();
+            DrawBackgroundSettingsLabel(ref y, width, "Removed images (trash)");
+            DrawBackgroundSettingsLabel(ref y, width, backgroundTrashFiles.Count == 0
+                ? "Image trash is empty."
+                : "Trash occupies " + MediaTrashPolicy.FormatSize(backgroundTrashBytes) + " in " + backgroundTrashFiles.Count + " file(s). Restore never overwrites an existing image.");
+            string restoreTrashImage = null;
+            string requestDeleteTrashImage = null;
+            string deleteTrashImage = null;
+            bool cancelDeleteTrashImage = false;
+            bool emptyTrashImages = false;
+            for (int i = 0; i < backgroundTrashFiles.Count; i++)
+            {
+                RemovedMediaFile item = backgroundTrashFiles[i];
+                DrawBackgroundSettingsLabel(ref y, width, item.DisplayName + "  (" + MediaTrashPolicy.FormatSize(item.Size) + ")");
+                float trashHalf = Mathf.Max(40f, (width - 6f) / 2f);
+                if (string.Equals(pendingDeleteBackgroundTrash, item.Path, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    DrawBackgroundSettingsLabel(ref y, width, "Click Delete permanently again to confirm. This cannot be undone.");
+                    if (UiButton(new Rect(0, y, trashHalf, 28f), "Delete permanently")) deleteTrashImage = item.Path;
+                    if (UiButton(new Rect(trashHalf + 6f, y, trashHalf, 28f), "Cancel")) cancelDeleteTrashImage = true;
+                    y += 36f;
+                    continue;
+                }
+
+                if (UiButton(new Rect(0, y, trashHalf, 28f), "Restore")) restoreTrashImage = item.Path;
+                if (UiButton(new Rect(trashHalf + 6f, y, trashHalf, 28f), "Delete permanently")) requestDeleteTrashImage = item.Path;
+                y += 36f;
+            }
+
+            if (backgroundTrashFiles.Count > 0)
+            {
+                if (!confirmEmptyBackgroundTrash)
+                {
+                    if (UiButton(new Rect(0, y, Mathf.Min(180f, width), 28f), "Empty image trash..."))
+                    {
+                        confirmEmptyBackgroundTrash = true;
+                        backgroundImageMessage = "Click Empty trash again to permanently delete " + backgroundTrashFiles.Count + " file(s).";
+                    }
+
+                    y += 36f;
+                }
+                else
+                {
+                    DrawBackgroundSettingsLabel(ref y, width, "Permanently delete " + backgroundTrashFiles.Count + " file(s), " + MediaTrashPolicy.FormatSize(backgroundTrashBytes) + "? This cannot be undone.");
+                    float confirmHalf = Mathf.Max(40f, (width - 6f) / 2f);
+                    if (UiButton(new Rect(0, y, confirmHalf, 28f), "Empty trash")) emptyTrashImages = true;
+                    if (UiButton(new Rect(confirmHalf + 6f, y, confirmHalf, 28f), "Cancel")) confirmEmptyBackgroundTrash = false;
+                    y += 36f;
+                }
+            }
+
             DrawBackgroundSettingsLabel(ref y, width, "Preserved objects relative to the hero");
             bool orderBehind = DrawModeButton(new Rect(0, y, width, 26), "Behind hero", preservedObjectOrder == "BehindHero");
             y += 30f;
@@ -536,6 +587,11 @@ namespace ShaderStripMod
             if (pauseRequested != pauseGameWhileBrowserOpen) SetPauseGameWhileBrowserOpen(pauseRequested);
             if (selectImage != null) SetBackgroundImage(selectImage);
             if (removeImage != null) RemoveBackgroundImage(removeImage);
+            if (restoreTrashImage != null) RestoreBackgroundTrashFile(restoreTrashImage);
+            if (cancelDeleteTrashImage) pendingDeleteBackgroundTrash = null;
+            else if (requestDeleteTrashImage != null) pendingDeleteBackgroundTrash = requestDeleteTrashImage;
+            else if (deleteTrashImage != null) DeleteBackgroundTrashFile(deleteTrashImage);
+            if (emptyTrashImages) EmptyBackgroundTrash();
             if (chooseImage) ChooseBackgroundImage();
             if (orderBehind) SetPreservedObjectOrder("BehindHero");
             if (orderFront) SetPreservedObjectOrder("InFront");
@@ -605,7 +661,7 @@ namespace ShaderStripMod
         {
             UiBox(content, "");
             Rect viewport = new Rect(content.x + 10f, content.y + 10f, content.width - 20f, content.height - 20f);
-            Rect view = new Rect(0f, 0f, Mathf.Max(300f, viewport.width - 20f), Mathf.Max(viewport.height, 1940f));
+            Rect view = new Rect(0f, 0f, Mathf.Max(300f, viewport.width - 20f), Mathf.Max(viewport.height, 2100f));
             textureBrowserDetailScroll = GUI.BeginScrollView(viewport, textureBrowserDetailScroll, view);
 
             Rect inner = new Rect(0f, 0f, view.width, view.height);
@@ -629,8 +685,8 @@ namespace ShaderStripMod
             DrawPerformanceCounterControls(new Rect(inner.x, y, inner.width, 196f), custom);
             y += 204f;
 
-            DrawPerformanceCounters(new Rect(inner.x, y, inner.width, 256f));
-            y += 264f;
+            DrawPerformanceCounters(new Rect(inner.x, y, inner.width, 340f));
+            y += 348f;
 
             if (!string.IsNullOrEmpty(lastPerformanceMessage))
             {
@@ -845,6 +901,14 @@ namespace ShaderStripMod
             UiLabel(new Rect(rect.x, y, rect.width, 20f), "Proxy update: " + FormatMetric(lastProxyUpdateMs, lastProxyUpdateGcBytes));
             y += 22f;
             UiLabel(new Rect(rect.x, y, rect.width, 20f), "Draw sources: " + preservedRendererDrawSources.Count + " / " + maxPreservedRenderers + " | proxies: " + preservedRendererProxies.Count);
+            y += 22f;
+            UiLabel(new Rect(rect.x, y, rect.width, 20f), "Preserve scan: matched " + preserveRunStats.CandidateMatched + " | drawn " + preserveRunStats.Drawn + " | blocked " + preserveRunStats.Stale);
+            y += 22f;
+            UiLabel(new Rect(rect.x, y, rect.width, 20f), "Limit skips: draw " + preserveRunStats.SkippedByDrawLimit + " / " + maxPreservedRenderers + " | particle " + preserveRunStats.SkippedByParticleLimit + " / " + maxProjectileParticleRenderers);
+            y += 22f;
+            UiLabel(new Rect(rect.x, y, rect.width, 20f), "Skip reasons: disabled " + preserveRunStats.SkippedDisabled + " | inactive " + preserveRunStats.SkippedInactive + " | visible " + preserveRunStats.SkippedAlreadyVisible);
+            y += 22f;
+            UiLabel(new Rect(rect.x, y, rect.width, 20f), "            particle " + preserveRunStats.SkippedExpensiveParticle + " | scene " + preserveRunStats.SkippedOtherScene + " | no rule " + preserveRunStats.SkippedNoRule + " | no mat " + preserveRunStats.SkippedNoMaterials);
             y += 22f;
             UiLabel(new Rect(rect.x, y, rect.width, 20f), "Deferred tasks: " + performanceTasksDeferred);
             y += 22f;

@@ -32,7 +32,7 @@ namespace ShaderStripMod
         {
             var hero=HeroController.SilentInstance;var gm=GameManager.instance;
             if(!initialized||hero==null||hero.cState==null||hero.cState.dead||hero.cState.hazardDeath||gm==null||
-               !gm.IsGameplayScene()||gm.gameState==GameState.EXITING_LEVEL||IsMenuScene(GetActiveSceneName()))return null;
+               !gm.IsGameplayScene()||gm.gameState==GameState.EXITING_LEVEL||gm.gameState==GameState.CUTSCENE||IsMenuScene(GetActiveSceneName()))return null;
             var cameras=GameCameras.instance;var controller=cameras!=null?cameras.cameraController:null;
             var camera=controller!=null?controller.cam:null;
             return IsCameraFollowing(controller)&&controller.isActiveAndEnabled&&camera!=null&&camera.isActiveAndEnabled&&

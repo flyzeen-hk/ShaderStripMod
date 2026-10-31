@@ -21,9 +21,9 @@ namespace ShaderStripMod
 
             private void Update()
             {
-                if(Input.GetKeyDown(KeyCode.F8))
-                {ShaderStripMod.Instance?.ToggleCameraPin();return;}
                 var browserMod=ShaderStripMod.Instance;
+                if (browserMod!=null && BrowserInputPolicy.ShouldToggleCameraPin(browserMod.textureBrowserVisible,Input.GetKeyDown(KeyCode.F8)))
+                { browserMod.ToggleCameraPin();return; }
                 if (browserMod!=null && BrowserInputPolicy.ShouldClose(browserMod.textureBrowserVisible,Input.GetKeyDown(KeyCode.Escape)))
                 { browserMod.SetTextureBrowserVisible(false);return; }
 
