@@ -1,12 +1,12 @@
 # ShaderStripMod
 
-Stable **1.29.30** · Hollow Knight (Modding API) · Windows-first
+Stable **1.29.31** · testing build · Hollow Knight (Modding API) · Windows-first
 
 A capture and visual-isolation tool for Hollow Knight: chroma-key backgrounds, selected scene objects, title-menu media and a temporary gameplay-camera pin.
 
 **English** · [Русский](#русский)
 
-**Download:** [ShaderStripMod 1.29.30 — release notes and ZIP](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). This is a pre-release: live gameplay testing is still pending.
+**Download:** [ShaderStripMod 1.29.30 — release notes and ZIP](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). The public build is a pre-release: live gameplay testing is still pending. The 1.29.31 hotkey and version patch is installed locally for testing and is not published yet.
 
 ## English
 
@@ -39,7 +39,7 @@ It is intended for screenshots, video, streams and visual projects, not for a no
    (create the `ShaderStripMod` folder if it does not exist).
 4. Start the game.
 
-The mod is not yet listed in ModLinks. Download the current pre-release from the [v1.29.30 release page](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). After it is listed in ModLinks, installing and updating through Lumafly will be the recommended route.
+The mod is not yet listed in ModLinks. Download the current pre-release from the [v1.29.30 release page](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). The 1.29.31 testing build is not published yet. After the mod is listed in ModLinks, installing and updating through Lumafly will be the recommended route.
 
 The release ZIP contains only `ShaderStripMod.dll`, `README.md`, `CHANGELOG.md` and `LICENSE`. It does not contain QA logs, screenshots, user settings or media.
 
@@ -53,7 +53,7 @@ The release ZIP contains only `ShaderStripMod.dll`, `README.md`, `CHANGELOG.md` 
 | `F11` | Reload `ShaderStripMod.preserve.txt` and `ShaderStripMod.visual-rules.txt`. |
 | `F12` | Enable / disable the mod's visual mode. The camera pin stays. |
 
-Inside F9, `Esc` closes the browser. The import controls and the camera/pause switches are on the Settings tab. Sprite masks are opened from the Nearby tab.
+Inside F9, `Esc` closes the browser. While F9 is open, F10-F12 do not fire from text fields or other browser controls. The import controls and the camera/pause switches are on the Settings tab. Sprite masks are opened from the Nearby tab.
 
 ### Runtime files
 
@@ -75,12 +75,12 @@ Deleted background and menu media is moved to a `removed` subfolder rather than 
 
 ### Known limitations
 
-- **Gameplay coverage is incomplete.** The last live run covered the title menu, F9, PNG/GIF/MP4 H.264, pause and input at 1360×768 and 800×600. It did not open a save or a gameplay room. Camera pin behavior in real rooms, during deaths, transitions and cutscenes was checked with Unity/game API substitutions. The 1.29.30 camera, F12 and transition changes have not been run in a live session yet.
+- **Gameplay coverage is incomplete.** The last live run covered the title menu, F9, PNG/GIF/MP4 H.264, pause and input at 1360×768 and 800×600. It did not open a save or a gameplay room. Camera pin behavior in real rooms, during deaths, transitions and cutscenes was checked with Unity/game API substitutions. The 1.29.31 hotkey gate and the 1.29.30 camera, F12 and transition changes have not been run in a live session yet.
 - **GPU coverage.** The live run used software DirectX WARP. Hardware GPUs and other video codecs are unverified.
 - **Windows-only import dialog.** The background/logo/media picker uses Windows APIs.
 - **Preserve rules are heuristic.** A rule targets a renderer, sprite region or object path, not a semantic object type. Shared atlases can produce false matches. Renderer/particle limits can skip objects that match a broad rule; F9 → Performance and F9 → Rules now report the counts and reasons. Diagnostics are invalidated on scene changes, rule changes and `F12` toggles; while visuals are off, the selected-rule report is explicitly marked as a dry scan.
 - **Settings are rewritten on save.** Unknown future keys or manual comments may be lost. Back up `ShaderStripMod.settings.txt` and `ShaderStripMod.preserve.txt` before upgrading.
-- **Camera keys.** While F9 is open, `F8` is ignored; use F9 → Settings to pin or release the camera. `F12` keeps the camera pin and only restores the visual mode.
+- **Camera keys.** While F9 is open, `F8` and `F10`-`F12` are ignored; use F9 → Settings to pin or release the camera. `F12` keeps the camera pin and only restores the visual mode.
 - **No cross-platform promise.** The Modding API is cross-platform, but this mod's file picker and live behavior are only supported on Windows.
 
 ### Uninstall
@@ -106,7 +106,7 @@ dotnet build ShaderStripMod.csproj -c Release -p:HollowKnightRefs="C:\Program Fi
 
 The project fails with a clear message if `Assembly-CSharp.dll` cannot be found. Build output is `bin\Release\ShaderStripMod.dll` and `.pdb`.
 
-The build environment is not pinned. A later rebuild can have a different module version id (MVID) and PDB checksum even though the method bodies are unchanged. The release ZIP ships the audited 1.29.30 binary.
+The build environment is not pinned. A later rebuild can have a different module version id (MVID) and PDB checksum even though the method bodies are unchanged. The public release ZIP ships the audited 1.29.30 binary; 1.29.31 is a local testing candidate.
 
 Run the automatic checks:
 
@@ -121,7 +121,7 @@ dotnet run --project Tests/MenuBackgroundDecorationsChecks.csproj -c Release
 dotnet run --project Tests/CameraPinChecks.csproj -c Release
 ```
 
-Stable 1.29.30 passes 157,583 assertions across these eight projects. Most of them are pixel comparisons for GIF and preview code; they are not a substitute for a live gameplay test.
+Stable 1.29.31 passes 157,592 assertions across these eight projects. Most of them are pixel comparisons for GIF and preview code; they are not a substitute for a live gameplay test.
 
 ### Reporting issues
 
@@ -133,7 +133,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Русский
 
-**Скачать:** [ShaderStripMod 1.29.30 — описание версии и ZIP](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). Это pre-release: живой игровой тест ещё не пройден.
+**Скачать:** [ShaderStripMod 1.29.30 — описание версии и ZIP](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). Публичная сборка остаётся pre-release: живой игровой тест ещё не пройден. Патч 1.29.31 для версии и hotkeys установлен локально для теста и пока не опубликован.
 
 ### Что делает мод
 
@@ -164,7 +164,7 @@ ShaderStripMod — инструмент для съёмки и визуальн�
    (папку `ShaderStripMod` создайте, если её нет).
 4. Запустите игру.
 
-Мод пока не добавлен в ModLinks. Текущую pre-release-сборку можно скачать со [страницы релиза v1.29.30](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). После добавления в ModLinks установка и обновление через Lumafly будут рекомендованным способом.
+Мод пока не добавлен в ModLinks. Текущую pre-release-сборку можно скачать со [страницы релиза v1.29.30](https://github.com/flyzeen-hk/ShaderStripMod/releases/tag/v1.29.30). Сборка 1.29.31 ещё не опубликована. После добавления в ModLinks установка и обновление через Lumafly будут рекомендованным способом.
 
 Релизный ZIP содержит только `ShaderStripMod.dll`, `README.md`, `CHANGELOG.md` и `LICENSE`. В нём нет QA-логов, скриншотов, пользовательских настроек и медиа.
 
@@ -178,7 +178,7 @@ ShaderStripMod — инструмент для съёмки и визуальн�
 | `F11` | Перечитать `ShaderStripMod.preserve.txt` и `ShaderStripMod.visual-rules.txt`. |
 | `F12` | Включить / выключить визуальный режим мода. Фиксация камеры сохраняется. |
 
-Внутри F9 `Esc` закрывает браузер. Импорт и переключатели камеры/паузы находятся во вкладке Settings. Маски спрайта открываются из вкладки Nearby.
+Внутри F9 `Esc` закрывает браузер. Пока F9 открыт, F10-F12 не срабатывают из текстовых полей и других элементов браузера. Импорт и переключатели камеры/паузы находятся во вкладке Settings. Маски спрайта открываются из вкладки Nearby.
 
 ### Runtime-файлы
 
@@ -200,12 +200,12 @@ exports/                           PNG-экспорты и metadata
 
 ### Известные ограничения
 
-- **Игровые сцены проверены не полностью.** Последний живой прогон охватил титульное меню, F9, PNG/GIF/MP4 H.264, паузу и ввод при 1360×768 и 800×600. Сохранение и игровая комната не открывались. Поведение фиксации камеры в реальных комнатах, при смерти, переходах и катсценах проверялось заменами Unity/game API. Изменения 1.29.30 для камеры, F12 и переходов ещё не проверены в живой игровой сессии.
+- **Игровые сцены проверены не полностью.** Последний живой прогон охватил титульное меню, F9, PNG/GIF/MP4 H.264, паузу и ввод при 1360×768 и 800×600. Сохранение и игровая комната не открывались. Поведение фиксации камеры в реальных комнатах, при смерти, переходах и катсценах проверялось заменами Unity/game API. Изменения 1.29.31 для input-gate и изменения 1.29.30 для камеры, F12 и переходов ещё не проверены в живой игровой сессии.
 - **GPU.** Живой прогон использовал программный DirectX WARP. Аппаратные GPU и другие видеокодеки не проверены.
 - **Импорт только в Windows.** Выбор фона, логотипа и медиа использует Windows API.
 - **Preserve-правила эвристические.** Правило нацелено на renderer, область спрайта или путь объекта, а не на смысловой тип объекта. Общие атласы дают ложные совпадения. Лимиты renderer/particle-источников могут пропустить объекты, подходящие под широкое правило; F9 → Performance и F9 → Rules теперь показывают количества и причины. Диагностика сбрасывается при смене сцены, изменении правил и выключении визуального режима; при выключенном F12 отчёт явно помечен как сухая проверка.
 - **Настройки перезаписываются при сохранении.** Неизвестные будущие ключи и ручные комментарии могут потеряться. Перед обновлением сохраните копии `ShaderStripMod.settings.txt` и `ShaderStripMod.preserve.txt`.
-- **Клавиши камеры.** При открытом F9 клавиша `F8` игнорируется; фиксация включается и снимается кнопкой в F9 → Settings. `F12` сохраняет фиксацию камеры и только восстанавливает визуальный режим.
+- **Клавиши камеры.** При открытом F9 клавиши `F8` и `F10`-`F12` игнорируются; фиксация включается и снимается кнопкой в F9 → Settings. `F12` сохраняет фиксацию камеры и только восстанавливает визуальный режим.
 - **Кроссплатформенность не обещается.** Modding API кроссплатформенный, но выбор файлов и живое поведение этого мода поддерживаются только на Windows.
 
 ### Удаление
@@ -231,7 +231,7 @@ dotnet build ShaderStripMod.csproj -c Release -p:HollowKnightRefs="C:\Program Fi
 
 Если `Assembly-CSharp.dll` не найден, проект завершится с понятным сообщением. Результат сборки — `bin\Release\ShaderStripMod.dll` и `.pdb`.
 
-Окружение сборки не зафиксировано. Пересборка из этих исходников может получить другой MVID и контрольную сумму PDB при тех же телах методов. В релизный ZIP входит проверенный бинарник 1.29.30.
+Окружение сборки не зафиксировано. Пересборка из этих исходников может получить другой MVID и контрольную сумму PDB при тех же телах методов. В публичный релизный ZIP входит проверенный бинарник 1.29.30; 1.29.31 — локальный тестовый кандидат.
 
 Автоматические проверки:
 
@@ -246,7 +246,7 @@ dotnet run --project Tests/MenuBackgroundDecorationsChecks.csproj -c Release
 dotnet run --project Tests/CameraPinChecks.csproj -c Release
 ```
 
-Стабильная 1.29.30 проходит 157 583 assertion в этих восьми проектах. Большинство — попиксельные сравнения GIF и preview, они не заменяют живой игровой тест.
+Стабильная 1.29.31 проходит 157 592 assertion в этих восьми проектах. Большинство — попиксельные сравнения GIF и preview, они не заменяют живой игровой тест.
 
 ### Сообщения об ошибках
 

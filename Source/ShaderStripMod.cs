@@ -408,7 +408,15 @@ namespace ShaderStripMod
 
         public override string GetVersion()
         {
-            return "1.29.29";
+            System.Version version = typeof(ShaderStripMod).Assembly.GetName().Version;
+            if (version == null)
+            {
+                return "0.0.0";
+            }
+
+            return version.Build >= 0
+                ? version.Major + "." + version.Minor + "." + version.Build
+                : version.Major + "." + version.Minor;
         }
 
         public override void Initialize()
@@ -450,7 +458,7 @@ namespace ShaderStripMod
             Camera.onPreCull += OnPinnedCameraPreCull;
             Camera.onPreCull += OnImageBackgroundCameraPreCull;
 
-            Log("ShaderStripMod v1.29.29 initialized. F8 pins/releases the gameplay camera, F9 opens texture browser, F10 dumps loaded sprites/textures, F11 reloads preserve list, F12 toggles visuals.");
+            Log("ShaderStripMod v" + GetVersion() + " initialized. F8 pins/releases the gameplay camera, F9 opens texture browser, F10 dumps loaded sprites/textures, F11 reloads preserve list, F12 toggles visuals. F8 and F10-F12 are ignored while F9 is open.");
             ApplyStrip();
         }
 

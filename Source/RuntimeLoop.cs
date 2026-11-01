@@ -21,40 +21,40 @@ namespace ShaderStripMod
 
             private void Update()
             {
-                var browserMod=ShaderStripMod.Instance;
-                if (browserMod!=null && BrowserInputPolicy.ShouldToggleCameraPin(browserMod.textureBrowserVisible,Input.GetKeyDown(KeyCode.F8)))
-                { browserMod.ToggleCameraPin();return; }
-                if (browserMod!=null && BrowserInputPolicy.ShouldClose(browserMod.textureBrowserVisible,Input.GetKeyDown(KeyCode.Escape)))
-                { browserMod.SetTextureBrowserVisible(false);return; }
-
-                if (Input.GetKeyDown(KeyCode.F9))
-                {
-                    ShaderStripMod.Instance?.ToggleTextureBrowser();
-                    return;
-                }
-
-                if (Input.GetKeyDown(KeyCode.F10))
-                {
-                    ShaderStripMod.Instance?.DumpLoadedSpritesAndTextures();
-                    return;
-                }
-
-                if (Input.GetKeyDown(KeyCode.F11))
-                {
-                    ShaderStripMod.Instance?.ReloadPreserveList();
-                    return;
-                }
-
-                if (Input.GetKeyDown(KeyCode.F12))
-                {
-                    ShaderStripMod.Instance?.Toggle();
-                    return;
-                }
-
                 ShaderStripMod mod = ShaderStripMod.Instance;
                 if (mod == null)
                 {
                     return;
+                }
+
+                ModHotkeyAction hotkey = ModHotkeyPolicy.Resolve(
+                    mod.textureBrowserVisible,
+                    Input.GetKeyDown(KeyCode.Escape),
+                    Input.GetKeyDown(KeyCode.F8),
+                    Input.GetKeyDown(KeyCode.F9),
+                    Input.GetKeyDown(KeyCode.F10),
+                    Input.GetKeyDown(KeyCode.F11),
+                    Input.GetKeyDown(KeyCode.F12));
+                switch (hotkey)
+                {
+                    case ModHotkeyAction.CloseBrowser:
+                        mod.SetTextureBrowserVisible(false);
+                        return;
+                    case ModHotkeyAction.ToggleBrowser:
+                        mod.ToggleTextureBrowser();
+                        return;
+                    case ModHotkeyAction.ToggleCameraPin:
+                        mod.ToggleCameraPin();
+                        return;
+                    case ModHotkeyAction.DumpLoadedAssets:
+                        mod.DumpLoadedSpritesAndTextures();
+                        return;
+                    case ModHotkeyAction.ReloadPreserveList:
+                        mod.ReloadPreserveList();
+                        return;
+                    case ModHotkeyAction.ToggleVisuals:
+                        mod.Toggle();
+                        return;
                 }
 
                 mod.UpdateTextureBrowserPause();

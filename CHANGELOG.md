@@ -2,6 +2,20 @@
 
 All notable changes to the stable line of ShaderStripMod. The project follows semantic versioning in the `1.29.x` series. History before 1.29.28 was not maintained as a public changelog.
 
+## [1.29.31] - 2026-11-01
+
+### Fixed
+
+- `GetVersion()` and the initialization log no longer report `1.29.29`. The public version is derived from the assembly version, so the in-game mod list and logs match the release.
+- F8-F12 and Esc now pass through one hotkey policy. While the F9 browser is open, F10-F12 no longer fire from text fields or other browser controls. F9 closes the browser and Esc still cancels or closes it; F8 remains ignored while F9 is open.
+
+### Verified
+
+- Release build: 0 errors, 0 warnings.
+- Eight test projects: 157,592 assertions. The input-routing policy is covered by 12 pure checks; RegressionChecks now has 2,573 assertions.
+- Product version is `1.29.31` without a source-revision suffix.
+- Live gameplay was not run for this build in this session. In-game F8-F12/F9 checks are pending.
+
 ## [1.29.30] - 2026-10-31
 
 ### Added
