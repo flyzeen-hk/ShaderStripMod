@@ -1,6 +1,6 @@
 # ShaderStripMod 1.31.1 — testing pre-release
 
-**Testing pre-release / Тестовая сборка.** Full live gameplay verification is still pending. The first launch completed without serious errors, but capture modes, presets, the narrow F9 layout, the media collage, camera transitions, audio and autosave remain unverified in a complete gameplay session.
+**Testing pre-release.** Full live gameplay verification is still pending. The first launch completed without serious errors, but capture modes, presets, the narrow F9 layout, the media collage, camera transitions, audio and autosave remain unverified in a complete gameplay session.
 
 ShaderStripMod 1.31.1 is a chroma-key and background replacement mod for Hollow Knight. This build adds capture modes, saved capture presets, a full-screen media collage and configurable hotkeys, with stronger persistence safeguards.
 
