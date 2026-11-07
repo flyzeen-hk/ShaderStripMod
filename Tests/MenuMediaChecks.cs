@@ -59,6 +59,7 @@ namespace UnityEngine
     public class Transform:Component {public Transform parent;public readonly List<Transform> children=new List<Transform>();}
     public class CanvasGroup:Component {}
     public class SpriteRenderer:Component {public Sprite sprite;}
+    public class AudioSource:Component {public bool playOnAwake,loop,mute;public float volume,spatialBlend;}
     public static class Time {public static float realtimeSinceStartup,unscaledTime;}
     public static class Application {public static string persistentDataPath=AppDomain.CurrentDomain.BaseDirectory;}
 }
@@ -71,13 +72,15 @@ namespace UnityEngine.Video
 {
     public enum VideoSource {Url}
     public enum VideoRenderMode {APIOnly}
-    public enum VideoAudioOutputMode {None}
+    public enum VideoAudioOutputMode {None,AudioSource}
     public enum VideoTimeReference {Freerun}
     public class VideoPlayer:UnityEngine.Component
     {
         public static VideoPlayer Last;public bool playOnAwake,isLooping,waitForFirstFrame,skipOnDrop,canSetSkipOnDrop=true,isPrepared,isPlaying,stopErrors,stopThrows;
         public VideoSource source;public VideoRenderMode renderMode;public VideoAudioOutputMode audioOutputMode;public VideoTimeReference timeReference;
         public string url;public uint width=1920,height=1080;public int plays,pauses,stops;public UnityEngine.Texture texture;
+        public int controlledAudioTrackCount;public ushort audioTrackCount=1;public UnityEngine.AudioSource targetAudioSource;
+        public void SetTargetAudioSource(ushort track,UnityEngine.AudioSource source){targetAudioSource=source;}
         public event Action<VideoPlayer,string> errorReceived;public event Action<VideoPlayer> prepareCompleted;
         public void Prepare(){}
         public void Play(){isPlaying=true;plays++;}
@@ -96,7 +99,8 @@ namespace ShaderStripMod
 {
     public sealed partial class ShaderStripMod
     {
-        string settingsFilePath,testScene="Menu_Title";bool visualsActive=true,textureBrowserVisible,pauseGameWhileBrowserOpen=true;int saved,hidden;
+        string settingsFilePath,testScene="Menu_Title";bool gameplayIsolationEnabled=true,menuDesignEnabled=true,textureBrowserVisible,pauseGameWhileBrowserOpen=true;int saved,hidden;
+        void ClearCompositionPanelFile(string name){}
         string GetActiveSceneName()=>testScene;
         void HideImageBackground(){hidden++;}
         // Decoration visibility is covered by MenuBackgroundDecorationsChecks; this harness exercises media/style ownership.
@@ -185,8 +189,10 @@ namespace ShaderStripMod
             foreach(string name in new[]{"..","../a.png","..\\a.png","C:\\a.png","a:b.png","a\n.png","",null})
             {bool failed=false;try{MenuMediaPolicy.Resolve(root,name);}catch(IOException){failed=true;}Check(failed,"Reject invalid media path "+name);}
             Check(MenuMediaPolicy.IsTitleScene("Menu_Title")&&!MenuMediaPolicy.IsTitleScene("Town")&&!MenuMediaPolicy.IsTitleScene(null),"Scope custom theme to menu scenes");
-            foreach(string label in new[]{"Menu design","More options","Enable custom menu","As logo","Button text size","Menu GIF loaded."})
+            foreach(string label in new[]{"Menu design","More options","Enable custom menu","As logo","Button text size","Menu GIF loaded.","Gameplay isolation (F12)","Title menu design","Menu video sound","Menu video ready (looped, muted)."})
                 Check(UiLocalization.Text(label,"Russian")!=label&&UiLocalization.Text(label,"English")==label,"Localized "+label);
+            Check(Near(MediaAudioPolicy.ClampVolume(float.NaN,.5f),.5f)&&Near(MediaAudioPolicy.ClampVolume(-1f,.5f),0f)&&Near(MediaAudioPolicy.ClampVolume(2f,.5f),1f),"Audio volume clamps invalid and out-of-range values");
+            Check(Near(MediaAudioPolicy.EffectiveVolume(true,.5f,false,.5f),.25f)&&MediaAudioPolicy.EffectiveVolume(false,.5f,false,1f)==0f&&MediaAudioPolicy.EffectiveVolume(true,.5f,true,1f)==0f,"Effective audio volume respects enable, mute and master");
             Check(UiLocalization.Text("Menu media error: Unsupported menu media format.","Russian")=="Ошибка файла меню: Неподдерживаемый формат файла меню.","Nested status localization");
             MenuMediaPolicy.ValidateImageDimensions(PngHeader(3840,2160),".PNG");Check(true,"4K image fits safe pixel limit");
             foreach(var dimensions in new[]{new[]{0,1},new[]{8193,1},new[]{4096,4096},new[]{int.MaxValue,2}})
@@ -212,6 +218,40 @@ namespace ShaderStripMod
             var playback=new MenuMediaPlayback(path,true);var video=UnityEngine.Video.VideoPlayer.Last;video.Ready();
             Check(!video.isPlaying&&playback.Texture==video.texture,"Preparation while paused never starts video");
             Check(video.isLooping&&video.audioOutputMode==UnityEngine.Video.VideoAudioOutputMode.None&&video.renderMode==UnityEngine.Video.VideoRenderMode.APIOnly,"Looped silent video texture mode");
+            Tick(0);using(var sounding=new MenuMediaPlayback(path,true,new MediaAudioSettings{Enabled=true,Volume=.5f,Muted=false,MasterVolume=1f}))
+            {
+                var voice=UnityEngine.Video.VideoPlayer.Last;var source=voice.targetAudioSource;
+                Check(voice.audioOutputMode==UnityEngine.Video.VideoAudioOutputMode.AudioSource&&voice.controlledAudioTrackCount==1,"Opt-in video sound routes the first audio track to an AudioSource");
+                Check(source!=null&&!source.playOnAwake&&source.loop&&source.spatialBlend==0f&&Near(source.volume,.5f),"Menu AudioSource is 2D, looped and uses the configured volume");
+                voice.Ready();Check(sounding.Message=="Menu video ready (looped, sound on).","Sound-on status is reported");
+                sounding.ApplyAudio(new MediaAudioSettings{Enabled=true,Volume=.5f,Muted=true,MasterVolume=1f});
+                Check(source.mute&&Near(source.volume,0f),"Muting applies live without rebuilding the player");
+                sounding.ApplyAudio(new MediaAudioSettings{Enabled=true,Volume=.8f,Muted=false,MasterVolume=.5f});
+                Check(!source.mute&&Near(source.volume,.4f),"Per-video and master volumes multiply");
+                sounding.ApplyAudio(MediaAudioSettings.Silent);Check(sounding.AudioEnabled&&voice.audioOutputMode==UnityEngine.Video.VideoAudioOutputMode.AudioSource,"A route change is rejected without rebuilding the player");
+            }
+            Tick(0);using(var muted=new MenuMediaPlayback(path,true,new MediaAudioSettings{Enabled=true,Volume=.5f,Muted=true,MasterVolume=1f}))
+            {var player=UnityEngine.Video.VideoPlayer.Last;player.Ready();Check(muted.Message=="Menu video ready (looped, muted).","Muted status is reported");}
+            Tick(0);using(var trackless=new MenuMediaPlayback(path,true,new MediaAudioSettings{Enabled=true,Volume=.5f,Muted=false,MasterVolume=1f}))
+            {
+                var player=UnityEngine.Video.VideoPlayer.Last;player.audioTrackCount=0;
+                Check(!trackless.VideoHasNoAudioTrack,"Audio-track state is reported only after preparation");
+                player.Ready();
+                Check(trackless.VideoHasNoAudioTrack&&trackless.Message=="Menu video ready (looped, no audio track).","Prepared video without an audio track is reported");
+            }
+            Tick(0);using(var tracklessSurface=new MediaSurface(path,true,new MediaAudioSettings{Enabled=true,Volume=.5f,Muted=false,MasterVolume=1f}))
+            {
+                var player=UnityEngine.Video.VideoPlayer.Last;player.audioTrackCount=0;player.Ready();
+                Check(tracklessSurface.VideoHasNoAudioTrack,"MediaSurface forwards the missing audio-track state");
+            }
+            Tick(0);using(var surface=new MediaSurface(path,true,new MediaAudioSettings{Enabled=true,Volume=.5f,Muted=false,MasterVolume=1f}))
+            {
+                Check(surface.IsLoaded&&surface.AudioEnabled&&surface.MediaName=="video.mp4"&&surface.Animated,"MediaSurface reports loaded media and audio route");
+                Check(surface.TryApplyAudio(new MediaAudioSettings{Enabled=true,Volume=.25f,Muted=false,MasterVolume=1f}),"Volume changes apply without recreating the surface");
+                Check(Near(UnityEngine.Video.VideoPlayer.Last.targetAudioSource.volume,.25f),"Surface volume reaches the native audio source");
+                Check(!surface.TryApplyAudio(MediaAudioSettings.Silent),"Disabling sound requests a new surface");
+                surface.Dispose();surface.Dispose();Check(surface.Failed&&surface.Texture==null,"MediaSurface disposal is idempotent and releases textures");
+            }
             Tick(1);playback.Update(false);Check(video.isPlaying,"Resume starts prepared video");Tick(2);playback.Update(true);Check(!video.isPlaying&&video.pauses==1,"F9/manual pause stops native player");
             video.stopErrors=true;video.Error("Codec");Check(playback.Failed&&playback.Texture==null&&video.stops==1,"Native error stops once, hides old texture, avoids recursive error");
             int calls=video.plays;playback.Update(false);Check(video.plays==calls,"Failed video never restarts automatically");
@@ -233,7 +273,7 @@ namespace ShaderStripMod
             var unrelated=Attach<UnityEngine.UI.Text>("VersionLabel",canvas.transform);
             var logoRenderer=Attach<UnityEngine.SpriteRenderer>("LogoTitle");var original=new UnityEngine.Sprite {bounds=new UnityEngine.Bounds {size=new UnityEngine.Vector3(10,4,0),center=new UnityEngine.Vector3(1,.7f,0)}};logoRenderer.sprite=original;
             UIManager.instance=new UIManager {gameTitle=logoRenderer,mainMenuScreen=canvas};
-            Tick(0);var mod=new ShaderStripMod {settingsFilePath=Path.Combine(root,"settings.txt"),customMenuEnabled=true,customMenuFile="image.png",customMenuLogoFile="logo.png",customMenuTextColor="Cyan"};
+            Tick(0);var mod=new ShaderStripMod {settingsFilePath=Path.Combine(root,"settings.txt"),menuDesignEnabled=true,customMenuEnabled=true,customMenuFile="image.png",customMenuLogoFile="logo.png",customMenuTextColor="Cyan",customMenuAudioEnabled=false,customMenuMuted=false,customMenuVolume=.5f,menuMediaMasterVolume=1f};
             mod.InitializeCustomMenuPaths();Check(mod.customMenuLayout=="Cover","Default menu placement fills screen");mod.UpdateCustomMenu();UnityEngine.Texture texture;UnityEngine.Material material;
             Check(mod.TryGetCustomMenuBackground(out texture,out material)&&texture.width==100,"Image chosen as custom background");
             Check(logoRenderer.sprite!=original&&logoRenderer.sprite.bounds.size.x<=10&&logoRenderer.sprite.bounds.size.y<=4,"Custom logo stays within original layout");

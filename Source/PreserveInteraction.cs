@@ -886,7 +886,7 @@ namespace ShaderStripMod
             RestorePreservedRendererProxies();
             MarkPreservedRendererCacheDirty();
             preserveManagerRuntimeReportDirty = true;
-            if (visualsActive)
+            if (gameplayIsolationEnabled || menuDesignEnabled)
             {
                 ApplyStrip();
             }

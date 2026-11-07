@@ -13,7 +13,7 @@ namespace ShaderStripMod
     public sealed partial class ShaderStripMod
     {
         void StoreCameraState(UnityEngine.Camera camera) { if(!strippedMasks.ContainsKey(camera)) strippedMasks.Add(camera,camera.cullingMask); }
-        bool visualsActive;UnityEngine.Color stripBackground=new UnityEngine.Color(0,0,1);
+        UnityEngine.Color stripBackground=new UnityEngine.Color(0,0,1);
         sealed class FakeRenderer { internal bool Hidden,Alive=true; }
         static void RunMaskPreviewChecks()
         {
@@ -47,9 +47,9 @@ namespace ShaderStripMod
             ownership.ReleaseAll(r=>r.Alive,(r,state)=>r.Hidden=state);Check(!native.Hidden,"Repeated restoration is safe");
             var dead=new FakeRenderer();ownership.Hold(dead,r=>r.Hidden,(r,state)=>r.Hidden=state);dead.Alive=false;
             ownership.ReleaseAll(r=>r.Alive,(r,state)=> { if(!r.Alive) throw new Exception("Destroyed renderer accessed");r.Hidden=state; });Check(true,"Destroyed renderers are not accessed during cleanup");
-            var mod=new ShaderStripMod();var camera=new UnityEngine.Camera { rect=new UnityEngine.Rect(0,.002f,1,.996f),clearFlags=UnityEngine.CameraClearFlags.Depth };
+            var mod=new ShaderStripMod {gameplayIsolationEnabled=false,menuDesignEnabled=false};var camera=new UnityEngine.Camera { rect=new UnityEngine.Rect(0,.002f,1,.996f),clearFlags=UnityEngine.CameraClearFlags.Depth };
             mod.EnforceBackgroundCameraFrame(camera);Check(camera.rect.y==.002f,"Disabled mod does not alter camera rectangle");
-            mod.visualsActive=true;mod.EnforceBackgroundCameraFrame(camera);
+            mod.gameplayIsolationEnabled=true;mod.menuDesignEnabled=true;mod.EnforceBackgroundCameraFrame(camera);
             Check(camera.rect.x==0&&camera.rect.y==0&&camera.rect.width==1&&camera.rect.height==1,"Camera clears full screen including bottom F9 border pixels");
             Check(camera.clearFlags==UnityEngine.CameraClearFlags.SolidColor&&camera.backgroundColor.b==1,"Both solid and image modes have an opaque full-screen clear");
             camera.rect=new UnityEngine.Rect(0,.01f,1,.98f);mod.EnforceBackgroundCameraFrame(camera);

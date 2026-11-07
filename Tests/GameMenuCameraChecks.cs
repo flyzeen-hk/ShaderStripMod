@@ -11,6 +11,7 @@ namespace ShaderStripMod
     public sealed partial class ShaderStripMod
     {
         int heroLayer=-1,visibleMask;
+        bool gameplayIsolationEnabled=true,menuDesignEnabled=true;
         bool menuBackgroundMode,menuMaskCached;
         int cachedMenuMask;
         UnityEngine.Camera GetMenuBackgroundCamera(UnityEngine.Camera[] cameras)
@@ -33,7 +34,7 @@ namespace ShaderStripMod
             var canvas=new UnityEngine.Canvas {renderMode=UnityEngine.RenderMode.ScreenSpaceCamera,worldCamera=hud};canvas.gameObject.layer=27;
             UIManager.instance=new UIManager {UICanvas=canvas};
             UnityEngine.Camera.main=world;UnityEngine.Camera.allCameras=new[]{world,hud,fx};
-            var mod=new ShaderStripMod {visualsActive=true,heroLayer=9,visibleMask=player|attack};
+            var mod=new ShaderStripMod {gameplayIsolationEnabled=true,menuDesignEnabled=true,heroLayer=9,visibleMask=player|attack};
             Check(mod.GetGameplayWorldCamera(UnityEngine.Camera.allCameras)==world,"Screen background stays on gameplay camera");
             foreach(var camera in UnityEngine.Camera.allCameras) mod.ConfigureGameplayCamera(camera,world);
             Check(world.cullingMask==(player|attack),"World camera hides level scenery without drawing duplicate menu");
@@ -65,8 +66,8 @@ namespace ShaderStripMod
             Check(mod.GetGameMenuCamera()==null,"Screen-space overlay Canvas requires no camera routing");
             mod.ConfigureGameplayCamera(hud,world);Check(hud.cullingMask==gui,"Keep original UI bit as fallback when no Canvas camera is assigned");
             UIManager.instance=null;mod.ConfigureGameplayCamera(hud,world);Check(hud.cullingMask==gui,"UI initialization fallback preserves camera's original uGUI mask");
-            mod.visualsActive=false;hud.cullingMask=123;mod.ReassertGameplayCameraBeforeCull(hud);Check(hud.cullingMask==123,"Disabled mod leaves camera alone");
-            mod.visualsActive=true;mod.testScene="Menu_Title";mod.ReassertGameplayCameraBeforeCull(hud);Check(hud.cullingMask==123,"Title screen keeps existing separate menu camera path");
+            mod.gameplayIsolationEnabled=false;hud.cullingMask=123;mod.ReassertGameplayCameraBeforeCull(hud);Check(hud.cullingMask==123,"Disabled gameplay isolation leaves camera alone");
+            mod.gameplayIsolationEnabled=true;mod.testScene="Menu_Title";mod.ReassertGameplayCameraBeforeCull(hud);Check(hud.cullingMask==123,"Title screen keeps existing separate menu camera path");
             mod.testScene="Town";mod.heroLayer=-1;mod.ReassertGameplayCameraBeforeCull(hud);Check(hud.cullingMask==123,"Loading scene without hero does not enter gameplay camera path");
             mod.heroLayer=9;mod.visibleMask=player|attack;mod.menuBackgroundMode=mod.menuMaskCached=true;mod.cachedMenuMask=gui;
             UnityEngine.Camera.allCameras=new[]{world,hud,offscreen};
@@ -78,8 +79,9 @@ namespace ShaderStripMod
             mod.testScene="Menu_Title";world.cullingMask=-1;world.clearFlags=UnityEngine.CameraClearFlags.Skybox;hud.cullingMask=0;
             mod.ReassertMenuCameraBeforeCull(world);mod.ReassertMenuCameraBeforeCull(hud);mod.ReassertMenuCameraBeforeCull(offscreen);
             Check(world.cullingMask==0&&hud.cullingMask==gui&&world.clearFlags==UnityEngine.CameraClearFlags.SolidColor,"Reassert title UI and backdrop after game changes camera masks");
-            mod.visualsActive=false;world.cullingMask=123;mod.ReassertMenuCameraBeforeCull(world);Check(world.cullingMask==123,"Disabled mod does not reassert title masks");
-            mod.visualsActive=true;mod.testScene="Town";mod.ReassertMenuCameraBeforeCull(world);Check(world.cullingMask==123,"Menu reassertion cannot override gameplay camera state");
+            mod.menuDesignEnabled=false;world.cullingMask=123;mod.ReassertMenuCameraBeforeCull(world);Check(world.cullingMask==123,"Disabled menu design does not reassert title masks even with gameplay isolation on");
+            mod.menuDesignEnabled=true;mod.gameplayIsolationEnabled=false;mod.testScene="Menu_Title";mod.menuBackgroundMode=true;world.cullingMask=123;mod.ReassertMenuCameraBeforeCull(world);Check(world.cullingMask==0,"Menu design reasserts title masks independently of gameplay isolation");
+            mod.gameplayIsolationEnabled=true;mod.testScene="Town";world.cullingMask=123;mod.ReassertMenuCameraBeforeCull(world);Check(world.cullingMask==123,"Menu reassertion cannot override gameplay camera state");
             mod.testScene="Menu_Title";mod.menuBackgroundMode=false;mod.ReassertMenuCameraBeforeCull(world);Check(world.cullingMask==123,"Do not reassert title masks before title setup");
             UIManager.instance=null;UnityEngine.Camera.main=null;UnityEngine.Camera.allCameras=new UnityEngine.Camera[0];
         }

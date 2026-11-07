@@ -14,13 +14,20 @@ namespace ShaderStripMod
             StringBuilder builder = new StringBuilder();
             builder.AppendLine("Runtime draw state (last sync):");
             builder.AppendLine("Scene: " + GetActiveSceneName());
-            if (!visualsActive)
+            if (!gameplayIsolationEnabled)
             {
-                builder.AppendLine("Visuals: disabled (F12). Preserve counters are cleared until visuals are enabled again.");
+                builder.AppendLine(HotkeyText("Gameplay isolation: disabled{keySuffix}. Preserve counters are cleared until gameplay isolation is enabled again.", HotkeyActions.ToggleGameplayIsolation));
             }
+            builder.AppendLine(BuildPreserveScanStatusText());
+            string scanHint = BuildPreserveScanHint();
+            if (!string.IsNullOrEmpty(scanHint))
+            {
+                builder.AppendLine(scanHint);
+            }
+
             builder.AppendLine("Draw sources: " + preserveRunStats.Sources + " / " + maxPreservedRenderers +
-                (preserveRunStats.Sources >= maxPreservedRenderers ? " (draw limit reached)" : ""));
-            if (preserveRunStats.CandidateMatched > 0 || preserveRunStats.SkippedByDrawLimit > 0 || preserveRunStats.SkippedByParticleLimit > 0)
+                (maxPreservedRenderers > 0 && preserveRunStats.Sources >= maxPreservedRenderers ? " (at draw limit)" : ""));
+            if (preserveRunStats.ScanCompleted)
             {
                 builder.AppendLine("Last full scan: matched " + preserveRunStats.CandidateMatched +
                     ", skipped by draw limit " + preserveRunStats.SkippedByDrawLimit +
@@ -50,6 +57,86 @@ namespace ShaderStripMod
             }
 
             return builder.ToString();
+        }
+
+        private PreserveScanStatus GetPreserveScanStatus()
+        {
+            return PreserveLimitPolicy.Evaluate(gameplayIsolationEnabled, GetTotalPreserveRuleCount(), CaptureRulesSuspended, preserveRunStats);
+        }
+
+        private string BuildPreserveScanStatusText()
+        {
+            PreserveScanStatus status = GetPreserveScanStatus();
+            switch (status.State)
+            {
+                case PreserveScanState.IsolationOff:
+                    return HotkeyText("Preserve counters are paused while gameplay isolation is off{keySuffix}.", HotkeyActions.ToggleGameplayIsolation);
+                case PreserveScanState.NoRules:
+                    return "No preserve rules are active; only the hero and attacks stay visible.";
+                case PreserveScanState.Suspended:
+                    return "Preserve rules are suspended by the current capture mode. They stay saved; switch to Selected objects to use them.";
+                case PreserveScanState.Pending:
+                    return "Preserve scan is pending. Enter a room and let gameplay render for a moment.";
+                case PreserveScanState.NoMatches:
+                    return "No loaded object matches the active preserve rules in this room.";
+                case PreserveScanState.LimitsReached:
+                    return FormatPreserveScanTemplate("Preserve limit reached: matched {matched}, drawn {drawn}, blocked {blocked}; hidden by draw limit {drawSkipped} and particle limit {particleSkipped}.", status);
+                default:
+                    return FormatPreserveScanTemplate("Preserve status: matched {matched}, drawn {drawn}, blocked {blocked}; limits not reached.", status);
+            }
+        }
+
+        private string BuildPreserveScanStatusShort()
+        {
+            PreserveScanStatus status = GetPreserveScanStatus();
+            switch (status.State)
+            {
+                case PreserveScanState.IsolationOff:
+                    return UiText("Paused: gameplay isolation is off.");
+                case PreserveScanState.NoRules:
+                    return UiText("No preserve rules.");
+                case PreserveScanState.Suspended:
+                    return UiText("Rules suspended by capture mode.");
+                case PreserveScanState.Pending:
+                    return UiText("Scan pending.");
+                case PreserveScanState.NoMatches:
+                    return UiText("No matches in this room.");
+                case PreserveScanState.LimitsReached:
+                    return FormatPreserveScanTemplate("Limit reached: draw {drawSkipped}, particle {particleSkipped} hidden.", status);
+                default:
+                    return FormatPreserveScanTemplate("Matched {matched}, drawn {drawn}, blocked {blocked}; no limit.", status);
+            }
+        }
+
+        private string BuildPreserveScanHint()
+        {
+            PreserveScanStatus status = GetPreserveScanStatus();
+            if (status.State == PreserveScanState.LimitsReached)
+            {
+                return "Some matching objects are hidden by the draw or particle limit. Remove a broad rule or raise the limits in Performance.";
+            }
+
+            if (status.State == PreserveScanState.NoRules)
+            {
+                return "Add rules in the Rules tab or from an object's Info tab.";
+            }
+
+            if (status.State == PreserveScanState.Suspended)
+            {
+                return "Switch Capture mode to Selected objects to use your preserve rules again.";
+            }
+
+            return "";
+        }
+
+        private string FormatPreserveScanTemplate(string template, PreserveScanStatus status)
+        {
+            return UiText(template)
+                .Replace("{matched}", status.Matched.ToString())
+                .Replace("{drawn}", status.Drawn.ToString())
+                .Replace("{blocked}", status.Blocked.ToString())
+                .Replace("{drawSkipped}", status.DrawSkipped.ToString())
+                .Replace("{particleSkipped}", status.ParticleSkipped.ToString());
         }
 
         private string DescribeRendererForDiagnostics(Renderer renderer, bool includeSkipReason)
@@ -125,7 +212,7 @@ namespace ShaderStripMod
 
             return selectedTextureBrowserIndex + "|" + entry.PreserveManagerRuleKind + "|" + entry.PreserveRuleValue +
                 "|" + entry.PreservePath + "|" + (entry.Renderer != null ? entry.Renderer.GetInstanceID() : 0) +
-                "|" + GetActiveSceneName() + "|" + GetTotalPreserveRuleCount() + "|" + (visualsActive ? "on" : "off");
+                "|" + GetActiveSceneName() + "|" + GetTotalPreserveRuleCount() + "|" + (gameplayIsolationEnabled ? "on" : "off") + "|" + (menuDesignEnabled ? "menu-on" : "menu-off");
         }
 
         private string BuildPreserveRuleLiveReport(TextureBrowserEntry entry)
@@ -138,9 +225,10 @@ namespace ShaderStripMod
             StringBuilder builder = new StringBuilder();
             string sceneName = GetActiveSceneName();
             builder.AppendLine("Selected rule live check (scene: " + sceneName + "):");
-            builder.AppendLine("Visuals: " + (visualsActive
-                ? "enabled (F12); counts scan loaded renderers for this rule."
-                : "disabled (F12); runtime draw state is cleared, counts below are a dry scan of loaded renderers."));
+            builder.AppendLine("Gameplay isolation: " + (gameplayIsolationEnabled
+                ? HotkeyText("enabled{keySuffix}; counts scan loaded renderers for this rule.", HotkeyActions.ToggleGameplayIsolation)
+                : HotkeyText("disabled{keySuffix}; runtime draw state is cleared, counts below are a dry scan of loaded renderers.", HotkeyActions.ToggleGameplayIsolation)));
+            builder.AppendLine("Title menu design: " + (menuDesignEnabled ? "enabled." : "disabled."));
             builder.AppendLine("Rule: " + entry.PreserveManagerRuleKind + " = " + entry.PreserveRuleValue);
             builder.AppendLine("Matching model: renderer rules use scene + object path + renderer type; path/group rules use object hierarchy; sprite/texture/material rules use asset names. Atlas regions are not detected by meaning, so a sprite rule keeps the region used by that renderer, not an automatically recognized bench or enemy.");
 

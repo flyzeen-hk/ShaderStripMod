@@ -58,7 +58,7 @@ namespace ShaderStripMod
                 StringBuilder builder = new StringBuilder();
                 builder.AppendLine("# ShaderStripMod loaded sprite/texture dump");
                 builder.AppendLine("# Scene: " + GetActiveSceneName());
-                builder.AppendLine("# Copy a name from [Textures], [Sprites], or [Materials] into " + PreserveFileName + ", then press F11.");
+                builder.AppendLine("# Copy a name from [Textures], [Sprites], or [Materials] into " + PreserveFileName + ", then press the reload hotkey (see the Hotkeys tab).");
                 builder.AppendLine();
 
                 AppendNameSection(builder, "[Textures]", textureNames);

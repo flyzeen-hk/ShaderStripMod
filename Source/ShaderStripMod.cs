@@ -282,7 +282,8 @@ namespace ShaderStripMod
         private GameObject runner;
         private GameObject proxyRoot;
         private bool initialized;
-        private bool visualsActive;
+        private bool gameplayIsolationEnabled;
+        private bool menuDesignEnabled;
         private bool menuBackgroundMode;
         private bool menuMaskCached;
         private int cachedMenuMask;
@@ -427,7 +428,8 @@ namespace ShaderStripMod
             }
 
             initialized = true;
-            visualsActive = true;
+            gameplayIsolationEnabled = true;
+            menuDesignEnabled = true;
             ResetMenuBackgroundCache();
             Instance = this;
             heroLayer = -1;
@@ -437,6 +439,7 @@ namespace ShaderStripMod
             LoadExportSettings();
             LoadPreserveList();
             LoadSpriteMasks();
+            LoadCapturePresets();
             InitializeVisualOverridesFoundation();
             InitializePart0RuntimeGate();
 
@@ -457,8 +460,14 @@ namespace ShaderStripMod
             // Anchor before background command buffers capture this camera's view matrix.
             Camera.onPreCull += OnPinnedCameraPreCull;
             Camera.onPreCull += OnImageBackgroundCameraPreCull;
+            Camera.onPreCull += OnCompositionCameraPreCull;
 
-            Log("ShaderStripMod v" + GetVersion() + " initialized. F8 pins/releases the gameplay camera, F9 opens texture browser, F10 dumps loaded sprites/textures, F11 reloads preserve list, F12 toggles visuals. F8 and F10-F12 are ignored while F9 is open.");
+            Log("ShaderStripMod v" + GetVersion() + " initialized. Hotkeys: browser " + HotkeyLogLabel(HotkeyActions.ToggleBrowser) +
+                ", camera pin " + HotkeyLogLabel(HotkeyActions.ToggleCameraPin) +
+                ", dump " + HotkeyLogLabel(HotkeyActions.DumpLoadedAssets) +
+                ", reload " + HotkeyLogLabel(HotkeyActions.ReloadPreserveList) +
+                ", gameplay isolation " + HotkeyLogLabel(HotkeyActions.ToggleGameplayIsolation) +
+                ". Change them in the browser's Hotkeys tab. All actions except the browser toggle are ignored while the browser is open.");
             ApplyStrip();
         }
 
@@ -476,11 +485,14 @@ namespace ShaderStripMod
             On.HeroController.DoAttack -= OnHeroDoAttack;
             On.InputHandler.Update -= OnInputHandlerUpdate;
             On.InputHandler.OnGUI -= OnInputHandlerOnGUI;
+            Camera.onPreCull -= OnCompositionCameraPreCull;
             Camera.onPreCull -= OnImageBackgroundCameraPreCull;
             Camera.onPreCull -= OnPinnedCameraPreCull;
             DisposeCameraPin();
             SetTextureBrowserVisible(false);
             RestoreTextureBrowserMenuInputBlocker();
+            FlushCompositionProfile();
+            ReleaseComposition();
 
             ReleaseCustomMenu();ReleaseMenuObjectPreview();
             ReleaseImageBackground();
@@ -492,66 +504,135 @@ namespace ShaderStripMod
             }
 
             RestoreAll();
-            visualsActive = false;
+            gameplayIsolationEnabled = false;
+            menuDesignEnabled = false;
             menuBackgroundMode = false;
             initialized = false;
             Instance = null;
             Log("ShaderStripMod unloaded. Original shaders, colors and camera masks restored.");
         }
 
-        internal void Toggle()
+        internal void ToggleGameplayVisuals()
         {
-            if (visualsActive)
+            if (gameplayIsolationEnabled)
             {
-                DisableVisuals();
+                DisableGameplayVisuals();
             }
             else
             {
-                EnableVisuals();
+                EnableGameplayVisuals();
             }
         }
 
         internal void ForceStop()
         {
-            DisableVisuals();
+            DisableGameplayVisuals();
         }
 
-        private void EnableVisuals()
+        private void EnableGameplayVisuals()
         {
-            if (!initialized || visualsActive)
+            if (!initialized || gameplayIsolationEnabled)
             {
                 return;
             }
 
-            visualsActive = true;
+            gameplayIsolationEnabled = true;
+            captureMode = CapturePresetMode.SelectedObjects;
+            SaveExportSettings();
             preserveManagerRuntimeReportDirty = true;
             ApplyStrip();
-            Log("ShaderStripMod visuals applied.");
+            Log("ShaderStripMod gameplay isolation applied.");
         }
 
-        private void DisableVisuals()
+        private void DisableGameplayVisuals()
         {
-            if (!visualsActive)
+            if (!gameplayIsolationEnabled)
             {
                 return;
             }
 
-            RestoreVisuals("DisableVisuals");
-            visualsActive = false;
+            RestoreGameplayVisuals("DisableGameplayVisuals");
+            gameplayIsolationEnabled = false;
+            captureMode = CapturePresetMode.FullScene;
+            heroLayer = -1;
+            visibleMask = 0;
+            SaveExportSettings();
+            if (menuDesignEnabled && IsMenuScene(GetActiveSceneName()))
+            {
+                ApplyMenuBackground();
+            }
+
             preserveManagerRuntimeReportDirty = true;
-            Log("ShaderStripMod visuals reverted; camera pin kept.");
+            Log("ShaderStripMod gameplay isolation reverted; menu design and camera pin kept.");
+        }
+
+        private void SetGameplayIsolationEnabled(bool enabled)
+        {
+            if (gameplayIsolationEnabled == enabled)
+            {
+                return;
+            }
+
+            if (enabled)
+            {
+                EnableGameplayVisuals();
+            }
+            else
+            {
+                DisableGameplayVisuals();
+            }
+        }
+
+        private void SetMenuDesignEnabled(bool enabled)
+        {
+            if (menuDesignEnabled == enabled)
+            {
+                return;
+            }
+
+            menuDesignEnabled = enabled;
+            SaveExportSettings();
+            if (!initialized)
+            {
+                return;
+            }
+
+            if (enabled)
+            {
+                if (IsMenuScene(GetActiveSceneName()))
+                {
+                    ApplyMenuBackground();
+                }
+                else if (gameplayIsolationEnabled)
+                {
+                    ApplyStrip();
+                }
+            }
+            else
+            {
+                ReleaseCustomMenu();
+                RestoreMenuBackgroundIfActive();
+                if (gameplayIsolationEnabled)
+                {
+                    ApplyStrip();
+                }
+            }
+
+            preserveManagerRuntimeReportDirty = true;
+            Log(enabled ? "ShaderStripMod title menu design enabled." : "ShaderStripMod title menu design disabled.");
         }
 
         private void RestoreAll()
         {
             ReleaseCameraPin();
-            RestoreVisuals("RestoreAll");
+            RestoreGameplayVisuals("RestoreAll");
+            RestoreMenuDesign("RestoreAll");
         }
 
-        private void RestoreVisuals(string reason)
+        private void RestoreGameplayVisuals(string reason)
         {
+            ReleaseComposition();
             RestorePart0RuntimeGate(reason);
-            ReleaseCustomMenu();ReleaseMenuObjectPreview();
             ReleaseImageBackground();
             RestoreShaders();
             RestoreBackgrounds();
@@ -568,6 +649,13 @@ namespace ShaderStripMod
             ResetMenuBackgroundCache();
         }
 
+        private void RestoreMenuDesign(string reason)
+        {
+            ReleaseCustomMenu();
+            ReleaseMenuObjectPreview();
+            RestoreMenuBackgroundIfActive();
+        }
+
         private void OnHeroStart(On.HeroController.orig_Start orig, HeroController self)
         {
             orig(self);
@@ -578,7 +666,7 @@ namespace ShaderStripMod
                 ProbeVisualOverridesFoundation(self);
             }
 
-            if (visualsActive)
+            if (gameplayIsolationEnabled)
             {
                 ApplyStrip();
             }
@@ -586,6 +674,7 @@ namespace ShaderStripMod
 
         private void OnSceneChanged(string sceneName)
         {
+            ReleaseComposition();
             ReleaseCameraPin("Camera released for a scene change, respawn or transition.");
             HideImageBackground();
             ReleaseCustomMenu();ReleaseMenuObjectPreview();
@@ -611,7 +700,7 @@ namespace ShaderStripMod
             UpdateTextureBrowserMenuInputBlocker();
             Log("ShaderStripMod scene changed to " + sceneName + ".");
 
-            if (visualsActive)
+            if (gameplayIsolationEnabled || menuDesignEnabled)
             {
                 ApplyStrip();
             }

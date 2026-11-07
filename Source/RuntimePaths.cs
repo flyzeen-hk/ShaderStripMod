@@ -160,12 +160,12 @@ namespace ShaderStripMod
         {
             StringBuilder builder = new StringBuilder();
             builder.AppendLine("# ShaderStripMod preserve list");
-            builder.AppendLine("# Press F10 in game to write " + DumpFileName + ".");
+            builder.AppendLine("# Use the dump hotkey in game to write " + DumpFileName + ".");
             builder.AppendLine("# Preferred: rendererPath= entries preserve exact renderer instances.");
             builder.AppendLine("# Use sprite=, texture=, material=, path=, groupPath=, or projectilePath= entries.");
             builder.AppendLine("# path= is exact object only. groupPath= and projectilePath= include children.");
             builder.AppendLine("# Plain lines are treated as legacy asset rules.");
-            builder.AppendLine("# F11 reloads this file without restarting the game.");
+            builder.AppendLine("# The reload hotkey reloads this file without restarting the game.");
             builder.AppendLine("# Lines starting with # or // are ignored.");
             return builder.ToString();
         }

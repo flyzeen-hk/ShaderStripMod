@@ -32,6 +32,7 @@ namespace ShaderStripMod
         internal int SkippedNoRule;
         internal int SkippedNoMaterials;
         internal int SkippedProxy;
+        internal bool ScanCompleted;
 
         internal void ResetFrame()
         {
@@ -54,6 +55,7 @@ namespace ShaderStripMod
             Sources = 0;
             SkippedByDrawLimit = 0;
             SkippedByParticleLimit = 0;
+            ScanCompleted = false;
         }
 
         internal void RecordStale(PreserveSkipKind kind)

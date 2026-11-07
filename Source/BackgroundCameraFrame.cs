@@ -9,7 +9,7 @@ namespace ShaderStripMod
         private readonly Dictionary<tk2dCamera,Rect> menuTk2dRects=new Dictionary<tk2dCamera,Rect>();
         private void EnforceBackgroundCameraFrame(Camera camera)
         {
-            if(!visualsActive||camera==null||camera.targetTexture!=null) return;
+            if(!(gameplayIsolationEnabled||menuDesignEnabled)||camera==null||camera.targetTexture!=null) return;
             StoreCameraState(camera);
             if(!backgroundCameraRects.ContainsKey(camera)) backgroundCameraRects.Add(camera,camera.rect);
             // A partial camera viewport leaves pixels drawn by IMGUI outside it, even after F9 closes.
@@ -18,7 +18,7 @@ namespace ShaderStripMod
         }
         private void EnforceMenuCameraFrame(Camera camera)
         {
-            if(!visualsActive || camera==null || camera.targetTexture!=null || !IsMenuScene(GetActiveSceneName())) return;
+            if(!menuDesignEnabled || camera==null || camera.targetTexture!=null || !IsMenuScene(GetActiveSceneName())) return;
             Rect rect=camera.rect;
             if(!MenuViewport.HasRoundingGap(rect.x,rect.y,rect.width,rect.height,Screen.width,Screen.height)) return;
             if(!backgroundCameraRects.ContainsKey(camera)) backgroundCameraRects.Add(camera,rect);

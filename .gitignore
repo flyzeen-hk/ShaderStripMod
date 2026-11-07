@@ -25,6 +25,8 @@ exports/
 *.settings.txt
 *.preserve.txt
 *.visual-rules.txt
+*.composition.txt
+*.hotkeys.txt
 *.sprite-dump.txt
 ShaderStripMod.experimental.*
 

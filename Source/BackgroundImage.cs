@@ -111,7 +111,7 @@ namespace ShaderStripMod
                 return;
             }
             SaveExportSettings();
-            if (visualsActive) ApplyStrip();
+            if (gameplayIsolationEnabled || menuDesignEnabled) ApplyStrip();
             backgroundImageMessage = "Background image selected: " + fileName;
         }
         private void RemoveBackgroundImage(string fileName)
@@ -143,7 +143,7 @@ namespace ShaderStripMod
                 backgroundImageFilesDirty = true;
                 RefreshBackgroundImageFiles();
                 SaveExportSettings();
-                if (visualsActive) ApplyStrip();
+                if (gameplayIsolationEnabled || menuDesignEnabled) ApplyStrip();
                 backgroundImageMessage = "Removed image: " + fileName;
             }
             catch (Exception ex) { backgroundImageMessage = "Could not remove image: " + ex.Message; }
@@ -229,7 +229,7 @@ namespace ShaderStripMod
             backgroundMode = NormalizeBackgroundMode(mode);
             SaveExportSettings();
             if (string.Equals(backgroundMode, BackgroundModeColor, StringComparison.OrdinalIgnoreCase)) ReleaseImageBackground();
-            if (visualsActive) ApplyStrip();
+            if (gameplayIsolationEnabled || menuDesignEnabled) ApplyStrip();
         }
 
         private void SetBackgroundImageLayout(string layout)
@@ -299,18 +299,31 @@ namespace ShaderStripMod
         private Camera GetImageBackgroundCamera()
         {
             Camera[] cameras = Camera.allCameras;
-            return IsMenuScene(GetActiveSceneName()) ? GetMenuBackgroundCamera(cameras)
-                : GetGameplayWorldCamera(cameras);
+            if (IsMenuScene(GetActiveSceneName())) return GetMenuBackgroundCamera(cameras);
+            return GetGameplayWorldCamera(cameras);
+        }
+
+        // The legacy gameplay image is a full-screen backdrop. The media collage uses its
+        // own command buffer and suppresses this backdrop while it is active.
+        private void GetImageBackgroundSurfaceSize(Camera camera, out int width, out int height)
+        {
+            width = Mathf.Max(1, camera != null && camera.targetTexture != null ? camera.targetTexture.width : Screen.width);
+            height = Mathf.Max(1, camera != null && camera.targetTexture != null ? camera.targetTexture.height : Screen.height);
         }
 
         private void ConfigureImageBackgroundForCamera(Camera camera, bool visible)
         {
-            if (visualsActive && visible) EnforceBackgroundCameraFrame(camera);
+            bool titleScene=MenuMediaPolicy.IsTitleScene(GetActiveSceneName());
+            bool menuActive=menuDesignEnabled&&titleScene;
+            bool gameplayActive=gameplayIsolationEnabled&&!titleScene;
+            if ((menuActive||gameplayActive) && visible) EnforceBackgroundCameraFrame(camera);
             Texture drawTexture=null;Material drawMaterial=null;string layout=backgroundImageLayout;
-            bool hasCustom=TryGetCustomMenuBackground(out drawTexture,out drawMaterial);
+            // The legacy gameplay image remains a menu backdrop only while menu design is enabled.
+            bool hasCustom=menuActive&&TryGetCustomMenuBackground(out drawTexture,out drawMaterial);
             if(hasCustom)layout=customMenuLayout;
-            else if(IsImageBackgroundEnabled()&&TryLoadImageBackground()){drawTexture=backgroundImageTexture;drawMaterial=imageMaterial;}
-            if (!visualsActive || !visible || camera == null || drawTexture==null || drawMaterial==null)
+            else if(menuActive&&IsImageBackgroundEnabled()&&TryLoadImageBackground()){drawTexture=backgroundImageTexture;drawMaterial=imageMaterial;}
+            else if(gameplayActive&&IsImageBackgroundEnabled()&&TryLoadImageBackground()){drawTexture=backgroundImageTexture;drawMaterial=imageMaterial;}
+            if (!(menuActive||gameplayActive) || !visible || camera == null || drawTexture==null || drawMaterial==null)
             {
                 HideImageBackground();
                 return;
@@ -328,10 +341,12 @@ namespace ShaderStripMod
                 imageMesh.vertices = new Vector3[4];
                 imageMesh.uv = new[] { new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0) };
             }
+            int surfaceWidth, surfaceHeight;
+            GetImageBackgroundSurfaceSize(camera, out surfaceWidth, out surfaceHeight);
             BackgroundImageGeometry.Size size = BackgroundImageGeometry.Calculate(drawTexture.width, drawTexture.height,
-                Mathf.Max(1f, Screen.width), Mathf.Max(1f, Screen.height), layout);
-            float x = size.Width * (1f + 2f / Mathf.Max(1f, Screen.width));
-            float y = size.Height * (1f + 2f / Mathf.Max(1f, Screen.height));
+                Mathf.Max(1f, surfaceWidth), Mathf.Max(1f, surfaceHeight), layout);
+            float x = size.Width * (1f + 2f / Mathf.Max(1f, surfaceWidth));
+            float y = size.Height * (1f + 2f / Mathf.Max(1f, surfaceHeight));
             if (x != imageMeshWidth || y != imageMeshHeight)
             {
                 imageMesh.vertices = new[] { new Vector3(-x, -y, 0), new Vector3(-x, y, 0), new Vector3(x, y, 0), new Vector3(x, -y, 0) };
@@ -341,7 +356,7 @@ namespace ShaderStripMod
                 imageMeshHeight = y;
             }
             imageDrawBuffer.Clear();
-            imageDrawBuffer.SetViewport(new Rect(0, 0, Screen.width, Screen.height));
+            imageDrawBuffer.SetViewport(new Rect(0, 0, surfaceWidth, surfaceHeight));
             imageDrawBuffer.ClearRenderTarget(false, true, stripBackground);
             // Clip-space quad is independent of player position, camera motion and scene layers.
             imageDrawBuffer.SetViewProjectionMatrices(Matrix4x4.identity, Matrix4x4.identity);
@@ -352,11 +367,17 @@ namespace ShaderStripMod
 
         private void OnImageBackgroundCameraPreCull(Camera camera)
         {
-            if (!visualsActive) return;
+            if (!gameplayIsolationEnabled && !menuDesignEnabled) return;
             EnforceMenuCameraFrame(camera);
             ReassertGameplayCameraBeforeCull(camera);
             ReassertMenuCameraBeforeCull(camera);
             spriteMaskVisibility.Reassert(r => r!=null,(r,value) => r.forceRenderingOff=value);
+            if (compositionActive)
+            {
+                // The collage needs the same full-screen green camera, but not the legacy backdrop buffer.
+                if (camera == compositionBufferCamera) EnforceBackgroundCameraFrame(camera);
+                return;
+            }
             if (camera != GetImageBackgroundCamera()) return;
             EnforceBackgroundCameraFrame(camera);
             ConfigureImageBackgroundForCamera(camera, true);
@@ -376,7 +397,14 @@ namespace ShaderStripMod
         private void UpdateImageBackground()
         {
             UpdateCustomMenu();
-            if (!visualsActive || (!IsImageBackgroundEnabled() && !IsCustomMenuActive())) { HideImageBackground(); return; }
+            // The collage owns the gameplay background layer while it is active.
+            if (compositionActive)
+            {
+                HideImageBackground();
+                return;
+            }
+
+            if ((!gameplayIsolationEnabled && !menuDesignEnabled) || (!IsImageBackgroundEnabled() && !IsCustomMenuActive())) { HideImageBackground(); return; }
             if (Time.unscaledTime >= nextImageFileCheck)
             {
                 nextImageFileCheck = Time.unscaledTime + 1f;

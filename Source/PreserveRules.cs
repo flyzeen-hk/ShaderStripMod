@@ -9,6 +9,8 @@ namespace ShaderStripMod
 {
     public sealed partial class ShaderStripMod
     {
+        private string lastPreserveFileError = "";
+
         private void LoadPreserveList()
         {
             if(string.IsNullOrEmpty(preserveFilePath)) InitializeListFiles();
@@ -395,93 +397,165 @@ namespace ShaderStripMod
             return (rule.Projectile ? "projectileRenderer" : "renderer") + "|" + sceneName + "|" + path + "|" + rendererType + "|" + spriteName + "|" + materialName + "|" + textureName;
         }
 
-        private void SavePreserveList()
+        private bool SavePreserveList()
         {
+            lastPreserveFileError = "";
             if (string.IsNullOrEmpty(preserveFilePath))
             {
                 InitializeListFiles();
             }
 
+            if (string.IsNullOrEmpty(preserveFilePath))
+            {
+                lastPreserveFileError = "no writable mod folder.";
+                Log("ShaderStripMod preserve list save failed: " + lastPreserveFileError);
+                return false;
+            }
+
             try
             {
-                List<string> entries = new List<string>(preservedAssetNames);
-                entries.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<string> sprites = new List<string>(preservedSpriteNames);
-                sprites.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<string> textures = new List<string>(preservedTextureNames);
-                textures.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<string> materials = new List<string>(preservedMaterialNames);
-                materials.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<string> paths = new List<string>(preservedObjectPaths);
-                paths.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<string> groups = new List<string>(preservedGroupObjectPaths);
-                groups.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<string> projectiles = new List<string>(preservedProjectileObjectPaths);
-                projectiles.Sort(System.StringComparer.OrdinalIgnoreCase);
-                List<RendererPreserveRule> rendererRules = new List<RendererPreserveRule>(preservedRendererRules);
-                rendererRules.Sort(CompareRendererPreserveRules);
-
+                List<string> ruleLines = BuildPreserveRuleLines(true);
                 StringBuilder builder = new StringBuilder();
                 builder.AppendLine("# ShaderStripMod preserve list");
                 builder.AppendLine("# Edited by the in-game texture browser.");
-                builder.AppendLine("# Press F9 to browse loaded textures/entities, F10 to dump to file, F11 to reload this file.");
+                builder.AppendLine("# Use the mod hotkeys (see the Hotkeys tab) to browse loaded textures/entities, dump to file and reload this file.");
                 builder.AppendLine("# rendererPath= preserves one exact renderer by scene/object path/type.");
                 builder.AppendLine("# path= is exact object only. groupPath= and projectilePath= include children.");
                 builder.AppendLine("# sprite=, texture=, and material= are exact asset rules. asset= is a legacy broad rule.");
                 builder.AppendLine();
-                for (int i = 0; i < rendererRules.Count; i++)
+                for (int i = 0; i < ruleLines.Count; i++)
                 {
-                    builder.AppendLine(BuildRendererPreserveRuleLine(rendererRules[i]));
-                }
-
-                AppendBlankLineIfNeeded(builder, rendererRules.Count, paths.Count);
-                for (int i = 0; i < paths.Count; i++)
-                {
-                    builder.AppendLine("path=" + paths[i]);
-                }
-
-                AppendBlankLineIfNeeded(builder, paths.Count, groups.Count);
-                for (int i = 0; i < groups.Count; i++)
-                {
-                    builder.AppendLine("groupPath=" + groups[i]);
-                }
-
-                AppendBlankLineIfNeeded(builder, paths.Count + groups.Count, projectiles.Count);
-                for (int i = 0; i < projectiles.Count; i++)
-                {
-                    builder.AppendLine("projectilePath=" + projectiles[i]);
-                }
-
-                AppendBlankLineIfNeeded(builder, paths.Count + groups.Count + projectiles.Count, sprites.Count);
-                for (int i = 0; i < sprites.Count; i++)
-                {
-                    builder.AppendLine("sprite=" + sprites[i]);
-                }
-
-                AppendBlankLineIfNeeded(builder, paths.Count + groups.Count + projectiles.Count + sprites.Count, textures.Count);
-                for (int i = 0; i < textures.Count; i++)
-                {
-                    builder.AppendLine("texture=" + textures[i]);
-                }
-
-                AppendBlankLineIfNeeded(builder, paths.Count + groups.Count + projectiles.Count + sprites.Count + textures.Count, materials.Count);
-                for (int i = 0; i < materials.Count; i++)
-                {
-                    builder.AppendLine("material=" + materials[i]);
-                }
-
-                AppendBlankLineIfNeeded(builder, paths.Count + groups.Count + projectiles.Count + sprites.Count + textures.Count + materials.Count, entries.Count);
-                for (int i = 0; i < entries.Count; i++)
-                {
-                    builder.AppendLine("asset=" + entries[i]);
+                    builder.AppendLine(ruleLines[i]);
                 }
 
                 AtomicTextFile.Write(preserveFilePath,builder.ToString());
-                Log("ShaderStripMod saved preserve entries to " + preserveFilePath + ": renderers=" + rendererRules.Count + ", paths=" + paths.Count + ", groups=" + groups.Count + ", projectiles=" + projectiles.Count + ", sprites=" + sprites.Count + ", textures=" + textures.Count + ", materials=" + materials.Count + ", legacyAssets=" + entries.Count + ".");
+                Log("ShaderStripMod saved preserve entries to " + preserveFilePath + ": " + GetTotalPreserveRuleCount() + " rule(s).");
+                return true;
             }
             catch (System.Exception ex)
             {
+                lastPreserveFileError = ex.Message;
                 Log("ShaderStripMod preserve list save failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        private List<string> SnapshotPreserveRuleLines()
+        {
+            return BuildPreserveRuleLines(true);
+        }
+
+        private void ClearAllPreserveRuleCollections()
+        {
+            preservedAssetNames.Clear();
+            preservedSpriteNames.Clear();
+            preservedTextureNames.Clear();
+            preservedMaterialNames.Clear();
+            preservedObjectPaths.Clear();
+            preservedGroupObjectPaths.Clear();
+            preservedProjectileObjectPaths.Clear();
+            preservedRendererRuleKeys.Clear();
+            preservedRendererExactMatchKeys.Clear();
+            preservedProjectileRendererExactMatchKeys.Clear();
+            preservedRendererRules.Clear();
+            preservedRendererRuleIndexDirty = true;
+            preservedRendererRuleIndexHasFallbackRules = false;
+            MarkPreservedRendererCacheDirty();
+        }
+
+        private void RestorePreserveRuleLines(List<string> lines)
+        {
+            ClearAllPreserveRuleCollections();
+            if (lines == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                AddPreserveEntriesFromLine(lines[i]);
+            }
+        }
+
+        private List<string> BuildPreserveRuleLines(bool includeGroupSeparators)
+        {
+            List<string> entries = new List<string>(preservedAssetNames);
+            entries.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<string> sprites = new List<string>(preservedSpriteNames);
+            sprites.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<string> textures = new List<string>(preservedTextureNames);
+            textures.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<string> materials = new List<string>(preservedMaterialNames);
+            materials.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<string> paths = new List<string>(preservedObjectPaths);
+            paths.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<string> groups = new List<string>(preservedGroupObjectPaths);
+            groups.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<string> projectiles = new List<string>(preservedProjectileObjectPaths);
+            projectiles.Sort(System.StringComparer.OrdinalIgnoreCase);
+            List<RendererPreserveRule> rendererRules = new List<RendererPreserveRule>(preservedRendererRules);
+            rendererRules.Sort(CompareRendererPreserveRules);
+
+            List<string> lines = new List<string>();
+            for (int i = 0; i < rendererRules.Count; i++)
+            {
+                string line = BuildRendererPreserveRuleLine(rendererRules[i]);
+                if (!string.IsNullOrEmpty(line))
+                {
+                    lines.Add(line);
+                }
+            }
+
+            AppendBlankLineIfNeeded(lines, rendererRules.Count, paths.Count, includeGroupSeparators);
+            for (int i = 0; i < paths.Count; i++)
+            {
+                lines.Add("path=" + paths[i]);
+            }
+
+            AppendBlankLineIfNeeded(lines, paths.Count, groups.Count, includeGroupSeparators);
+            for (int i = 0; i < groups.Count; i++)
+            {
+                lines.Add("groupPath=" + groups[i]);
+            }
+
+            AppendBlankLineIfNeeded(lines, paths.Count + groups.Count, projectiles.Count, includeGroupSeparators);
+            for (int i = 0; i < projectiles.Count; i++)
+            {
+                lines.Add("projectilePath=" + projectiles[i]);
+            }
+
+            AppendBlankLineIfNeeded(lines, paths.Count + groups.Count + projectiles.Count, sprites.Count, includeGroupSeparators);
+            for (int i = 0; i < sprites.Count; i++)
+            {
+                lines.Add("sprite=" + sprites[i]);
+            }
+
+            AppendBlankLineIfNeeded(lines, paths.Count + groups.Count + projectiles.Count + sprites.Count, textures.Count, includeGroupSeparators);
+            for (int i = 0; i < textures.Count; i++)
+            {
+                lines.Add("texture=" + textures[i]);
+            }
+
+            AppendBlankLineIfNeeded(lines, paths.Count + groups.Count + projectiles.Count + sprites.Count + textures.Count, materials.Count, includeGroupSeparators);
+            for (int i = 0; i < materials.Count; i++)
+            {
+                lines.Add("material=" + materials[i]);
+            }
+
+            AppendBlankLineIfNeeded(lines, paths.Count + groups.Count + projectiles.Count + sprites.Count + textures.Count + materials.Count, entries.Count, includeGroupSeparators);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                lines.Add("asset=" + entries[i]);
+            }
+
+            return lines;
+        }
+
+        private void AppendBlankLineIfNeeded(List<string> lines, int previousCount, int nextCount, bool include)
+        {
+            if (include && lines != null && previousCount > 0 && nextCount > 0)
+            {
+                lines.Add("");
             }
         }
 
@@ -637,7 +711,7 @@ namespace ShaderStripMod
             RestorePreservedRendererDraws();
             RestorePreservedRendererProxies();
             MarkPreservedRendererCacheDirty();
-            if (visualsActive)
+            if (gameplayIsolationEnabled || menuDesignEnabled)
             {
                 ApplyStrip();
             }

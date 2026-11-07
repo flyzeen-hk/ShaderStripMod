@@ -23,6 +23,18 @@ namespace ShaderStripMod
         private string pendingDeleteBackgroundTrash;
         private string pendingDeleteMenuTrash;
 
+        private string TrashEmptyPromptMessage(int count)
+        {
+            return UiText("Click Empty trash again to permanently delete {count} file(s).").Replace("{count}", count.ToString());
+        }
+
+        private string TrashDeleteConfirmMessage(int count, long bytes)
+        {
+            return UiText("Permanently delete {count} file(s), {size}? This cannot be undone.")
+                .Replace("{count}", count.ToString())
+                .Replace("{size}", MediaTrashPolicy.FormatSize(bytes));
+        }
+
         private string GetBackgroundTrashDirectory()
         {
             if (string.IsNullOrEmpty(backgroundImagesDirectory))

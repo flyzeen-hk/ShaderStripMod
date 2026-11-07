@@ -231,7 +231,7 @@ namespace ShaderStripMod
         private void RefreshSpriteMaskRendering()
         {
             RestorePreservedRendererDraws();RestorePreservedRendererProxies();ReleaseSpriteMaskMeshes();RestoreShaders();
-            MarkPreservedRendererCacheDirty();if (visualsActive) ApplyStrip();
+            MarkPreservedRendererCacheDirty();if (gameplayIsolationEnabled || menuDesignEnabled) ApplyStrip();
         }
     }
 }

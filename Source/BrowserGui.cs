@@ -24,8 +24,11 @@ namespace ShaderStripMod
                 return;
             }
 
+            if (textureBrowserDetailTab != TextureBrowserHotkeysTab) CancelHotkeyCapture();
+
             Event closeEvent=Event.current;
-            if(closeEvent!=null && BrowserInputPolicy.ShouldClose(textureBrowserVisible,closeEvent.type==EventType.KeyDown && closeEvent.keyCode==KeyCode.Escape))
+            bool closeEscape=!IsHotkeyCaptureActive()&&hotkeyCaptureEscapeFrame!=Time.frameCount&&closeEvent!=null&&closeEvent.type==EventType.KeyDown&&closeEvent.keyCode==KeyCode.Escape;
+            if(closeEvent!=null && BrowserInputPolicy.ShouldClose(textureBrowserVisible,closeEscape))
             { SetTextureBrowserVisible(false);closeEvent.Use();return; }
             UpdateTextureBrowserCursor();
             bool fullMask=textureBrowserDetailTab==TextureBrowserMaskTab&&!textureBrowserPreserveMode;
@@ -46,7 +49,7 @@ namespace ShaderStripMod
                 else
                 {
                     DrawTextureBrowserBackdrop(textureBrowserWindowRect);
-                    textureBrowserWindowRect = GUI.Window(TextureBrowserWindowId, textureBrowserWindowRect, DrawTextureBrowserWindow, "ShaderStripMod Texture Browser");
+                    textureBrowserWindowRect = GUI.Window(TextureBrowserWindowId, textureBrowserWindowRect, DrawTextureBrowserWindow, UiText("ShaderStripMod Texture Browser"));
                 }
             }
             finally
@@ -111,6 +114,7 @@ namespace ShaderStripMod
                 return;
             }
             DrawTextureBrowserToolbar(width);
+            DrawTextureBrowserModeHint(width);
 
             float listWidth = Mathf.Clamp(width * 0.36f, 180f, 320f);
             if (width < 620f)
@@ -118,13 +122,32 @@ namespace ShaderStripMod
                 listWidth = Mathf.Clamp(width * 0.44f, 160f, 220f);
             }
 
-            Rect listRect = new Rect(12f, 92f, listWidth, height - 108f);
-            Rect detailRect = new Rect(listRect.xMax + 12f, 92f, Mathf.Max(160f, width - listRect.xMax - 24f), height - 108f);
+            Rect listRect = new Rect(12f, 108f, listWidth, height - 154f);
+            Rect detailRect = new Rect(listRect.xMax + 12f, 108f, Mathf.Max(160f, width - listRect.xMax - 24f), height - 154f);
             DrawTextureBrowserList(listRect);
             DrawTextureBrowserDetails(detailRect);
-
+            DrawTextureBrowserFooter(width, height);
 
             GUI.DragWindow(new Rect(0f, 0f, width, 24f));
+        }
+
+        private void DrawTextureBrowserFooter(float width, float height)
+        {
+            Rect footer = new Rect(12f, height - 34f, Mathf.Max(1f, width - 24f), 22f);
+            string hints = "Esc " + UiText("Close") + "   " +
+                HotkeyLabel(HotkeyActions.ToggleBrowser) + " " + UiText("Browser") + "   " +
+                HotkeyLabel(HotkeyActions.ToggleCameraPin) + " " + UiText("Camera") + "   " +
+                HotkeyLabel(HotkeyActions.ToggleGameplayIsolation) + " " + UiText("Isolation");
+            Color previous = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, .7f);
+                UiLabel(footer, hints);
+            }
+            finally
+            {
+                GUI.color = previous;
+            }
         }
 
         private void DrawTextureBrowserToolbar(float width)
@@ -133,10 +156,30 @@ namespace ShaderStripMod
             float buttonHeight = 24f;
             float searchY = 28f;
             float closeWidth = 82f;
-            Rect searchRect = new Rect(12f, searchY, Mathf.Max(120f, width - closeWidth - 30f), buttonHeight);
+            float clearWidth = 26f;
+            Rect searchRect = new Rect(12f, searchY, Mathf.Max(120f, width - closeWidth - clearWidth - 36f), buttonHeight);
+            Rect clearRect = new Rect(width - closeWidth - clearWidth - 18f, searchY, clearWidth, buttonHeight);
             Rect closeRect = new Rect(width - closeWidth - 12f, searchY, closeWidth, buttonHeight);
 
             textureBrowserSearch = GUI.TextField(searchRect, textureBrowserSearch);
+            if (string.IsNullOrEmpty(textureBrowserSearch))
+            {
+                Color previous = GUI.color;
+                try
+                {
+                    GUI.color = new Color(1f, 1f, 1f, .45f);
+                    GUI.Label(new Rect(searchRect.x + 6f, searchRect.y + 3f, Mathf.Max(1f, searchRect.width - 12f), searchRect.height - 4f), UiText("Search by name, kind or details"));
+                }
+                finally
+                {
+                    GUI.color = previous;
+                }
+            }
+            else if (UiButton(clearRect, "×"))
+            {
+                textureBrowserSearch = "";
+            }
+
             if (UiButton(closeRect, "Close"))
             {
                 SetTextureBrowserVisible(false);
@@ -202,13 +245,39 @@ namespace ShaderStripMod
             }
         }
 
+        private string GetTextureBrowserModeDescription()
+        {
+            if (textureBrowserMenuMode) return "Title-menu sprites and backgrounds.";
+            if (textureBrowserPreserveMode) return "Manage preserve rules and remove ignored ones.";
+            if (textureBrowserProjectileMode) return "Recently captured projectile sprites.";
+            if (textureBrowserAtlasMode) return "Full texture atlases.";
+            if (textureBrowserEntityMode) return "Objects and sprites in the current room.";
+            if (textureBrowserNearbyMode) return "Sprites near the hero.";
+            return "All loaded sprites and textures.";
+        }
+
+        private void DrawTextureBrowserModeHint(float width)
+        {
+            Color previous = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, .65f);
+                UiLabel(new Rect(12f, 84f, Mathf.Max(1f, width - 24f), 18f), GetTextureBrowserModeDescription());
+            }
+            finally
+            {
+                GUI.color = previous;
+            }
+        }
+
         private bool DrawModeButton(Rect rect, string label, bool active)
         {
             Color previous=GUI.backgroundColor;
             try
             {
                 if(active)GUI.backgroundColor=new Color(.35f,.85f,1f,1f);
-                return UiButton(rect,active ? "✓ "+UiText(label) : label);
+                string localized=UiText(label);
+                return UiButton(rect,active ? "✓ "+localized : localized);
             }
             finally{GUI.backgroundColor=previous;}
         }
@@ -299,6 +368,14 @@ namespace ShaderStripMod
             {
                 DrawCustomMenuTab(content);
             }
+            else if (textureBrowserDetailTab == TextureBrowserCompositionTab)
+            {
+                DrawCompositionTab(content);
+            }
+            else if (textureBrowserDetailTab == TextureBrowserHotkeysTab)
+            {
+                DrawHotkeysTab(content);
+            }
             else if (textureBrowserDetailTab == TextureBrowserSettingsTab)
             {
                 DrawTextureBrowserSettingsTab(content);
@@ -313,7 +390,7 @@ namespace ShaderStripMod
             }
             else if (!hasEntry)
             {
-                UiLabel(new Rect(content.x, content.y + 12f, content.width, 24f), "Select an entry.");
+                DrawTextureBrowserEmptyState(content);
             }
             else if (textureBrowserDetailTab == TextureBrowserPreviewTab)
             {
@@ -333,26 +410,49 @@ namespace ShaderStripMod
             }
         }
 
+        private void DrawTextureBrowserEmptyState(Rect content)
+        {
+            if (browserInfoWrappedStyle == null) browserInfoWrappedStyle = new GUIStyle(GUI.skin.label) { wordWrap = true };
+            string text = UiText("Select an entry from the list on the left, or use Search to filter.");
+            string tip = UiText("Settings controls the green screen and camera. Panels builds the media collage. Menu design changes the title screen.");
+            float width = Mathf.Max(1f, content.width - 20f);
+            float height = browserInfoWrappedStyle.CalcHeight(new GUIContent(text), width);
+            UiLabel(new Rect(content.x + 10f, content.y + 12f, width, height), text, browserInfoWrappedStyle);
+            float tipHeight = browserInfoWrappedStyle.CalcHeight(new GUIContent(tip), width);
+            Color previous = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, .7f);
+                UiLabel(new Rect(content.x + 10f, content.y + 18f + height, width, tipHeight), tip, browserInfoWrappedStyle);
+            }
+            finally
+            {
+                GUI.color = previous;
+            }
+        }
+
         private void DrawTextureBrowserDetailTabs(Rect rect)
         {
             float gap = 6f;
-            int columns = rect.width < 380f ? 3 : 4;
-            int rows = columns == 3 ? 3 : 2;
+            int columns = rect.width < 380f ? 3 : 5;
+            int rows = columns == 3 ? 4 : 2;
             float rowHeight = (rect.height - gap * (rows - 1)) / rows;
             float tabWidth = Mathf.Max(42f, (rect.width - gap * (columns - 1)) / columns);
             DrawTextureBrowserDetailTabAt(rect, 0, columns, tabWidth, rowHeight, gap, "Info", TextureBrowserInfoTab);
             DrawTextureBrowserDetailTabAt(rect, 1, columns, tabWidth, rowHeight, gap, "Preview", TextureBrowserPreviewTab);
             DrawTextureBrowserDetailTabAt(rect, 2, columns, tabWidth, rowHeight, gap, "Rules", TextureBrowserRulesTab);
             DrawTextureBrowserDetailTabAt(rect, 3, columns, tabWidth, rowHeight, gap, "Export", TextureBrowserExportTab);
-            DrawTextureBrowserDetailTabAt(rect, 4, columns, tabWidth, rowHeight, gap, rect.width < 380f ? "Set" : "Settings", TextureBrowserSettingsTab);
-            DrawTextureBrowserDetailTabAt(rect, 5, columns, tabWidth, rowHeight, gap, "Perf", TextureBrowserPerformanceTab);
-            DrawTextureBrowserDetailTabAt(rect, 6, columns, tabWidth, rowHeight, gap, "Mask", TextureBrowserMaskTab);
+            DrawTextureBrowserDetailTabAt(rect, 4, columns, tabWidth, rowHeight, gap, "Mask", TextureBrowserMaskTab);
+            DrawTextureBrowserDetailTabAt(rect, 5, columns, tabWidth, rowHeight, gap, "Settings", TextureBrowserSettingsTab);
+            DrawTextureBrowserDetailTabAt(rect, 6, columns, tabWidth, rowHeight, gap, "Panels", TextureBrowserCompositionTab);
             DrawTextureBrowserDetailTabAt(rect, 7, columns, tabWidth, rowHeight, gap, "Menu design", TextureBrowserMenuDesignTab);
+            DrawTextureBrowserDetailTabAt(rect, 8, columns, tabWidth, rowHeight, gap, "Performance", TextureBrowserPerformanceTab);
+            DrawTextureBrowserDetailTabAt(rect, 9, columns, tabWidth, rowHeight, gap, "Hotkeys", TextureBrowserHotkeysTab);
         }
 
         private float GetTextureBrowserDetailTabsHeight(float width)
         {
-            return width < 380f ? 84f : 54f;
+            return width < 380f ? 114f : 54f;
         }
 
         private void DrawTextureBrowserDetailTabAt(Rect rect, int index, int columns, float tabWidth, float rowHeight, float gap, string label, int tab)
@@ -412,6 +512,7 @@ namespace ShaderStripMod
         private void DrawTextureBrowserRulesTab(TextureBrowserEntry entry, Rect content)
         {
             UiBox(content, "");
+            if (browserInfoWrappedStyle == null) browserInfoWrappedStyle = new GUIStyle(GUI.skin.label) { wordWrap = true };
             Rect inner = new Rect(content.x + 10f, content.y + 10f, content.width - 20f, content.height - 20f);
             if (entry.MenuResource)
             {
@@ -425,17 +526,37 @@ namespace ShaderStripMod
             float width=Mathf.Max(1,inner.width-20);
             float infoHeight=browserInfoWrappedStyle.CalcHeight(new GUIContent(info),width);
             float rendererHeight=RuleControlsLayout.Height(width,4),assetHeight=RuleControlsLayout.Height(width,4),pathHeight=RuleControlsLayout.Height(width,3);
-            float fullHeight=rendererHeight+assetHeight+pathHeight+infoHeight+128;
+            float rendererHelp=RulesHelpHeight(width,"Preserve one renderer without preserving the whole texture.");
+            float assetHelp=RulesHelpHeight(width,"Preserve every renderer that uses this sprite, texture or material.");
+            float pathHelp=RulesHelpHeight(width,"Preserve objects by hierarchy path.");
+            float fullHeight=rendererHeight+assetHeight+pathHeight+infoHeight+rendererHelp+assetHelp+pathHelp+210;
             textureBrowserDetailScroll=GUI.BeginScrollView(inner,textureBrowserDetailScroll,new Rect(0,0,width,Mathf.Max(inner.height,fullHeight)));
             float y=0;
-            UiLabel(new Rect(0,y,width,22),"Renderer rules");y+=26;
-            DrawRendererPreserveControls(entry,new Rect(0,y,width,rendererHeight));y+=rendererHeight+14;
-            UiLabel(new Rect(0,y,width,22),"Asset rules");y+=26;
-            DrawAssetPreserveControls(entry,new Rect(0,y,width,assetHeight));y+=assetHeight+14;
-            UiLabel(new Rect(0,y,width,22),"Path rules");y+=26;
-            DrawPathPreserveControls(entry,new Rect(0,y,width,pathHeight));y+=pathHeight+14;
+            UiSectionLabel(ref y,width,"Renderer rules");
+            DrawRulesHelp(ref y,width,"Preserve one renderer without preserving the whole texture.");
+            DrawRendererPreserveControls(entry,new Rect(0,y,width,rendererHeight));y+=rendererHeight+8;
+            UiSectionLabel(ref y,width,"Asset rules");
+            DrawRulesHelp(ref y,width,"Preserve every renderer that uses this sprite, texture or material.");
+            DrawAssetPreserveControls(entry,new Rect(0,y,width,assetHeight));y+=assetHeight+8;
+            UiSectionLabel(ref y,width,"Path rules");
+            DrawRulesHelp(ref y,width,"Preserve objects by hierarchy path.");
+            DrawPathPreserveControls(entry,new Rect(0,y,width,pathHeight));y+=pathHeight+8;
             UiLabel(new Rect(0,y,width,infoHeight),info,browserInfoWrappedStyle);
             GUI.EndScrollView();
+        }
+
+        private float RulesHelpHeight(float width, string text)
+        {
+            if (browserInfoWrappedStyle == null) browserInfoWrappedStyle = new GUIStyle(GUI.skin.label) { wordWrap = true };
+            return browserInfoWrappedStyle.CalcHeight(new GUIContent(UiText(text)), Mathf.Max(1f, width));
+        }
+
+        private void DrawRulesHelp(ref float y, float width, string text)
+        {
+            string localized = UiText(text);
+            float height = RulesHelpHeight(width, text);
+            UiLabel(new Rect(0f, y, width, height), localized, browserInfoWrappedStyle);
+            y += height + 8f;
         }
 
         private void DrawTextureBrowserExportTab(TextureBrowserEntry entry, Rect content)
@@ -478,21 +599,37 @@ namespace ShaderStripMod
             Rect view = new Rect(0, 0, width, Mathf.Max(viewport.height, height));
             textureBrowserDetailScroll = GUI.BeginScrollView(viewport, textureBrowserDetailScroll, view);
             float y = 0f;
-            DrawBackgroundSettingsLabel(ref y,width,"Interface language");
+            DrawBackgroundSettingsLabel(ref y,width,"Settings are applied immediately and saved automatically.");
+            if(!string.IsNullOrEmpty(backgroundImageMessage))DrawBackgroundSettingsLabel(ref y,width,"Status: "+backgroundImageMessage);
+            if(!string.IsNullOrEmpty(lastSettingsMessage))DrawBackgroundSettingsLabel(ref y,width,"Status: "+lastSettingsMessage);
+            UiSectionLabel(ref y,width,"Capture status");
+            DrawBackgroundSettingsLabel(ref y,width,BuildCaptureToggleStatusText());
+            DrawBackgroundSettingsLabel(ref y,width,BuildCameraStatusText());
+            DrawBackgroundSettingsLabel(ref y,width,BuildPreserveScanStatusText());
+            string captureHint=BuildPreserveScanHint();
+            if(!string.IsNullOrEmpty(captureHint))DrawBackgroundSettingsLabel(ref y,width,captureHint);
+            if(compositionEnabled)DrawBackgroundSettingsLabel(ref y,width,DescribeCompositionState());
+            DrawCapturePresetPanel(ref y,width);
+            UiSectionLabel(ref y,width,"Interface language");
             float languageWidth=(width-6)/2;
             bool english=DrawModeButton(new Rect(0,y,languageWidth,28),"English",uiLanguage=="English");
             bool russian=DrawModeButton(new Rect(languageWidth+6,y,languageWidth,28),"Русский",uiLanguage=="Russian");y+=36;
-            DrawBackgroundSettingsLabel(ref y,width,"Gameplay camera (F8)");
-            DrawBackgroundSettingsLabel(ref y,width,!string.IsNullOrEmpty(cameraPinMessage) ? cameraPinMessage : cameraPin.Active ? "Camera pinned in this room." : "Camera follows the hero.");
+            UiSectionLabel(ref y,width,"Visuals and camera");
+            bool gameplayToggle=DrawWrappedToggle(ref y,width,gameplayIsolationEnabled,HotkeyText("Gameplay isolation{keySuffix}",HotkeyActions.ToggleGameplayIsolation));
+            bool menuToggle=DrawWrappedToggle(ref y,width,menuDesignEnabled,"Title menu design");
+            DrawBackgroundSettingsLabel(ref y,width,"Gameplay isolation hides enemies and effects with the strip shader. Title menu design controls the custom title background and logo.");
+            DrawBackgroundSettingsLabel(ref y,width,HotkeyText("Gameplay camera{keySuffix}",HotkeyActions.ToggleCameraPin));
+            DrawBackgroundSettingsLabel(ref y,width,BuildCameraStatusText());
             bool previousEnabled=GUI.enabled;
             GUI.enabled=previousEnabled&&(cameraPin.Active||GetPinnableCamera()!=null);
-            bool toggleCamera=UiButton(new Rect(0,y,width,30),cameraPin.Active ? "Release camera (F8)" : "Pin camera here (F8)",backgroundSettingsButtonStyle);
+            bool toggleCamera=UiButton(new Rect(0,y,width,30),cameraPin.Active ? HotkeyText("Release camera{keySuffix}",HotkeyActions.ToggleCameraPin) : HotkeyText("Pin camera here{keySuffix}",HotkeyActions.ToggleCameraPin),backgroundSettingsButtonStyle);
             GUI.enabled=previousEnabled;y+=36;
             DrawBackgroundSettingsLabel(ref y,width,"Pin the current view; the hero can move independently. Released automatically on scene changes, death and cutscenes. Pinning is not saved.");
             if(!cameraPin.Active&&GetPinnableCamera()==null)DrawBackgroundSettingsLabel(ref y,width,"Enter a room to pin the camera. Transitions and cutscenes must finish first.");
-            bool pauseRequested=DrawWrappedToggle(ref y,width,pauseGameWhileBrowserOpen,"Pause time and sound while F9 is open");
-            DrawBackgroundSettingsLabel(ref y,width,"Title menu media is configured in Menu design.");
-            DrawBackgroundSettingsLabel(ref y, width, "Background: choose a color or image");
+            bool pauseRequested=DrawWrappedToggle(ref y,width,pauseGameWhileBrowserOpen,HotkeyText("Pause time and sound while the browser is open{keySuffix}",HotkeyActions.ToggleBrowser));
+            DrawBackgroundSettingsLabel(ref y,width,"Menu design controls the title screen background, logo and buttons.");
+            UiSectionLabel(ref y, width, "Screen background color and image");
+            DrawBackgroundSettingsLabel(ref y, width, "The background fills the whole screen behind the game world. The green color is used by gameplay isolation.");
             DrawBackgroundColorControls(new Rect(0, y, width, 94));
             y += 108f;
             DrawBackgroundSettingsLabel(ref y, width, IsImageBackgroundEnabled() ? "Image: " + backgroundImageRelativePath : "Color: " + backgroundColorName);
@@ -503,7 +640,7 @@ namespace ShaderStripMod
             DrawBackgroundLayoutChoice(ref y, width, "Fit entire image (keep proportions)", BackgroundImageLayoutContain);
             DrawBackgroundLayoutChoice(ref y, width, "Stretch to screen", BackgroundImageLayoutStretch);
             y += 6f;
-            DrawBackgroundSettingsLabel(ref y, width, "Imported images");
+            UiSectionLabel(ref y, width, "Imported images");
             string selectImage = null;
             string removeImage = null;
             if (backgroundImageFiles.Count == 0) DrawBackgroundSettingsLabel(ref y, width, "No imported images. Use Choose image... to select a file.");
@@ -516,12 +653,12 @@ namespace ShaderStripMod
                 if (IsImageBackgroundEnabled() && string.Equals(name, backgroundImageRelativePath, System.StringComparison.OrdinalIgnoreCase)) GUI.backgroundColor = Color.green;
                 if (UiButton(new Rect(0, y, buttonWidth, rowHeight), name, backgroundSettingsButtonStyle)) selectImage = name;
                 GUI.backgroundColor = previous;
-                if (UiButton(new Rect(buttonWidth + 6f, y, 84f, rowHeight), "Remove")) removeImage = name;
+                if (UiDangerButton(new Rect(buttonWidth + 6f, y, 84f, rowHeight), "Remove")) removeImage = name;
                 y += rowHeight + 6f;
             }
             DrawBackgroundSettingsLabel(ref y, width, "Remove clears an image from the list. A recoverable copy stays in background-images/removed.");
             RefreshBackgroundTrashFiles();
-            DrawBackgroundSettingsLabel(ref y, width, "Removed images (trash)");
+            UiSectionLabel(ref y, width, "Removed images (trash)");
             DrawBackgroundSettingsLabel(ref y, width, backgroundTrashFiles.Count == 0
                 ? "Image trash is empty."
                 : "Trash occupies " + MediaTrashPolicy.FormatSize(backgroundTrashBytes) + " in " + backgroundTrashFiles.Count + " file(s). Restore never overwrites an existing image.");
@@ -538,14 +675,14 @@ namespace ShaderStripMod
                 if (string.Equals(pendingDeleteBackgroundTrash, item.Path, System.StringComparison.OrdinalIgnoreCase))
                 {
                     DrawBackgroundSettingsLabel(ref y, width, "Click Delete permanently again to confirm. This cannot be undone.");
-                    if (UiButton(new Rect(0, y, trashHalf, 28f), "Delete permanently")) deleteTrashImage = item.Path;
+                    if (UiDangerButton(new Rect(0, y, trashHalf, 28f), "Delete permanently")) deleteTrashImage = item.Path;
                     if (UiButton(new Rect(trashHalf + 6f, y, trashHalf, 28f), "Cancel")) cancelDeleteTrashImage = true;
                     y += 36f;
                     continue;
                 }
 
                 if (UiButton(new Rect(0, y, trashHalf, 28f), "Restore")) restoreTrashImage = item.Path;
-                if (UiButton(new Rect(trashHalf + 6f, y, trashHalf, 28f), "Delete permanently")) requestDeleteTrashImage = item.Path;
+                if (UiDangerButton(new Rect(trashHalf + 6f, y, trashHalf, 28f), "Delete permanently")) requestDeleteTrashImage = item.Path;
                 y += 36f;
             }
 
@@ -553,35 +690,35 @@ namespace ShaderStripMod
             {
                 if (!confirmEmptyBackgroundTrash)
                 {
-                    if (UiButton(new Rect(0, y, Mathf.Min(180f, width), 28f), "Empty image trash..."))
+                    if (UiDangerButton(new Rect(0, y, Mathf.Min(180f, width), 28f), "Empty image trash..."))
                     {
                         confirmEmptyBackgroundTrash = true;
-                        backgroundImageMessage = "Click Empty trash again to permanently delete " + backgroundTrashFiles.Count + " file(s).";
+                        backgroundImageMessage = TrashEmptyPromptMessage(backgroundTrashFiles.Count);
                     }
 
                     y += 36f;
                 }
                 else
                 {
-                    DrawBackgroundSettingsLabel(ref y, width, "Permanently delete " + backgroundTrashFiles.Count + " file(s), " + MediaTrashPolicy.FormatSize(backgroundTrashBytes) + "? This cannot be undone.");
+                    DrawBackgroundSettingsLabel(ref y, width, TrashDeleteConfirmMessage(backgroundTrashFiles.Count, backgroundTrashBytes));
                     float confirmHalf = Mathf.Max(40f, (width - 6f) / 2f);
-                    if (UiButton(new Rect(0, y, confirmHalf, 28f), "Empty trash")) emptyTrashImages = true;
+                    if (UiDangerButton(new Rect(0, y, confirmHalf, 28f), "Empty trash")) emptyTrashImages = true;
                     if (UiButton(new Rect(confirmHalf + 6f, y, confirmHalf, 28f), "Cancel")) confirmEmptyBackgroundTrash = false;
                     y += 36f;
                 }
             }
 
-            DrawBackgroundSettingsLabel(ref y, width, "Preserved objects relative to the hero");
+            UiSectionLabel(ref y, width, "Preserved objects relative to the hero");
             bool orderBehind = DrawModeButton(new Rect(0, y, width, 26), "Behind hero", preservedObjectOrder == "BehindHero");
             y += 30f;
             bool orderFront = DrawModeButton(new Rect(0, y, width, 26), "In front of hero", preservedObjectOrder == "InFront");
             y += 34f;
-            DrawBackgroundSettingsLabel(ref y, width, backgroundImageMessage);
-            DrawBackgroundSettingsLabel(ref y, width, lastSettingsMessage);
             GUI.EndScrollView();
             backgroundSettingsContentHeight=y+16;
             if(english) SetUiLanguage("English");
             if(russian) SetUiLanguage("Russian");
+            if(gameplayToggle!=gameplayIsolationEnabled) SetGameplayIsolationEnabled(gameplayToggle);
+            if(menuToggle!=menuDesignEnabled) SetMenuDesignEnabled(menuToggle);
             if(toggleCamera)ToggleCameraPin();
             // Keep the list stable until the current IMGUI pass has finished.
             if (pauseRequested != pauseGameWhileBrowserOpen) SetPauseGameWhileBrowserOpen(pauseRequested);
@@ -595,6 +732,20 @@ namespace ShaderStripMod
             if (chooseImage) ChooseBackgroundImage();
             if (orderBehind) SetPreservedObjectOrder("BehindHero");
             if (orderFront) SetPreservedObjectOrder("InFront");
+        }
+
+        private string BuildCaptureToggleStatusText()
+        {
+            return UiText("Gameplay isolation: {isolation}. Title menu design: {menu}.")
+                .Replace("{isolation}",UiText(gameplayIsolationEnabled ? "On" : "Off"))
+                .Replace("{menu}",UiText(menuDesignEnabled ? "On" : "Off"));
+        }
+
+        private string BuildCameraStatusText()
+        {
+            string cameraStatus=!string.IsNullOrEmpty(cameraPinMessage) ? cameraPinMessage : cameraPin.Active ? "Camera pinned in this room." : "Camera follows the hero.";
+            if(cameraPin.Active)cameraStatus=cameraStatus+" "+HotkeyText("Press {key} again to release.",HotkeyActions.ToggleCameraPin);
+            return cameraStatus;
         }
 
         private void DrawBackgroundLayoutChoice(ref float y, float width, string text, string layout)
@@ -661,12 +812,14 @@ namespace ShaderStripMod
         {
             UiBox(content, "");
             Rect viewport = new Rect(content.x + 10f, content.y + 10f, content.width - 20f, content.height - 20f);
-            Rect view = new Rect(0f, 0f, Mathf.Max(300f, viewport.width - 20f), Mathf.Max(viewport.height, 2100f));
+            Rect view = new Rect(0f, 0f, Mathf.Max(300f, viewport.width - 20f), Mathf.Max(viewport.height, 2130f));
             textureBrowserDetailScroll = GUI.BeginScrollView(viewport, textureBrowserDetailScroll, view);
 
             Rect inner = new Rect(0f, 0f, view.width, view.height);
             bool custom = string.Equals(performanceProfile, PerformanceProfileCustom, System.StringComparison.OrdinalIgnoreCase);
             float y = inner.y;
+            UiLabel(new Rect(inner.x, y, inner.width, 22f), "Choose a profile. Custom unlocks the values below.");
+            y += 28f;
             DrawPerformanceProfileControls(new Rect(inner.x, y, inner.width, 202f));
             y += 210f;
 
@@ -890,8 +1043,10 @@ namespace ShaderStripMod
                 return;
             }
 
-            UiLabel(new Rect(rect.x, rect.y, rect.width, 22f), "Current cost");
+            UiLabel(new Rect(rect.x, rect.y, rect.width, 22f), "Status: " + BuildPreserveScanStatusShort());
             float y = rect.y + 26f;
+            UiLabel(new Rect(rect.x, y, rect.width, 20f), "Current cost");
+            y += 22f;
             UiLabel(new Rect(rect.x, y, rect.width, 20f), "ApplyStrip: " + FormatMetric(lastApplyStripMs, lastApplyStripGcBytes));
             y += 22f;
             UiLabel(new Rect(rect.x, y, rect.width, 20f), "Draw sync: " + FormatMetric(lastDrawSyncMs, lastDrawSyncGcBytes));

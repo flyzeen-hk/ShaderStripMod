@@ -27,41 +27,44 @@ namespace ShaderStripMod
                     return;
                 }
 
-                ModHotkeyAction hotkey = ModHotkeyPolicy.Resolve(
-                    mod.textureBrowserVisible,
-                    Input.GetKeyDown(KeyCode.Escape),
-                    Input.GetKeyDown(KeyCode.F8),
-                    Input.GetKeyDown(KeyCode.F9),
-                    Input.GetKeyDown(KeyCode.F10),
-                    Input.GetKeyDown(KeyCode.F11),
-                    Input.GetKeyDown(KeyCode.F12));
-                switch (hotkey)
+                if (!mod.UpdateHotkeyCapture())
                 {
-                    case ModHotkeyAction.CloseBrowser:
-                        mod.SetTextureBrowserVisible(false);
-                        return;
-                    case ModHotkeyAction.ToggleBrowser:
-                        mod.ToggleTextureBrowser();
-                        return;
-                    case ModHotkeyAction.ToggleCameraPin:
-                        mod.ToggleCameraPin();
-                        return;
-                    case ModHotkeyAction.DumpLoadedAssets:
-                        mod.DumpLoadedSpritesAndTextures();
-                        return;
-                    case ModHotkeyAction.ReloadPreserveList:
-                        mod.ReloadPreserveList();
-                        return;
-                    case ModHotkeyAction.ToggleVisuals:
-                        mod.Toggle();
-                        return;
+                    ModHotkeyAction hotkey = ModHotkeyPolicy.Resolve(
+                        mod.textureBrowserVisible,
+                        Input.GetKeyDown(KeyCode.Escape),
+                        mod.IsHotkeyDown(HotkeyActions.ToggleBrowser),
+                        mod.IsHotkeyDown(HotkeyActions.ToggleCameraPin),
+                        mod.IsHotkeyDown(HotkeyActions.DumpLoadedAssets),
+                        mod.IsHotkeyDown(HotkeyActions.ReloadPreserveList),
+                        mod.IsHotkeyDown(HotkeyActions.ToggleGameplayIsolation));
+                    switch (hotkey)
+                    {
+                        case ModHotkeyAction.CloseBrowser:
+                            mod.SetTextureBrowserVisible(false);
+                            return;
+                        case ModHotkeyAction.ToggleBrowser:
+                            mod.ToggleTextureBrowser();
+                            return;
+                        case ModHotkeyAction.ToggleCameraPin:
+                            mod.ToggleCameraPin();
+                            return;
+                        case ModHotkeyAction.DumpLoadedAssets:
+                            mod.DumpLoadedSpritesAndTextures();
+                            return;
+                        case ModHotkeyAction.ReloadPreserveList:
+                            mod.ReloadPreserveList();
+                            return;
+                        case ModHotkeyAction.ToggleGameplayIsolation:
+                            mod.ToggleGameplayVisuals();
+                            return;
+                    }
                 }
 
                 mod.UpdateTextureBrowserPause();
                 mod.UpdateTextureBrowserMenuInputBlocker();
                 mod.UpdateTextureBrowserCursor();
                 mod.UpdatePart0RuntimeGate();
-                if (!mod.visualsActive)
+                if (!mod.gameplayIsolationEnabled && !mod.menuDesignEnabled)
                 {
                     return;
                 }
@@ -70,36 +73,39 @@ namespace ShaderStripMod
                 bool ranNormalTask = false;
                 double frameBudgetUsedMs = 0.0;
 
-                bool urgentProjectileCapture = mod.projectileCaptureInterval <= 0f;
-                if (mod.ShouldCaptureProjectilesInCurrentState() && (urgentProjectileCapture || mod.TryEnterScheduledTask(ref ranNormalTask, ref frameBudgetUsedMs, false)))
+                if (mod.gameplayIsolationEnabled)
                 {
-                    long memory;
-                    long start = mod.BeginPerformanceMetric(out memory);
-                    mod.CaptureRecentProjectileRenderers(false);
-                    frameBudgetUsedMs += mod.EndPerformanceMetric(PerformanceMetricProjectileScan, start, memory);
-                }
+                    bool urgentProjectileCapture = mod.projectileCaptureInterval <= 0f;
+                    if (mod.ShouldCaptureProjectilesInCurrentState() && (urgentProjectileCapture || mod.TryEnterScheduledTask(ref ranNormalTask, ref frameBudgetUsedMs, false)))
+                    {
+                        long memory;
+                        long start = mod.BeginPerformanceMetric(out memory);
+                        mod.CaptureRecentProjectileRenderers(false);
+                        frameBudgetUsedMs += mod.EndPerformanceMetric(PerformanceMetricProjectileScan, start, memory);
+                    }
 
-                float proxyInterval = mod.GetProxyUpdateInterval();
-                bool urgentProxyUpdate = proxyInterval <= 0f;
-                if (now >= nextProxyUpdateTime && (urgentProxyUpdate || mod.TryEnterScheduledTask(ref ranNormalTask, ref frameBudgetUsedMs, false)))
-                {
-                    nextProxyUpdateTime = now + proxyInterval;
-                    long memory;
-                    long start = mod.BeginPerformanceMetric(out memory);
-                    mod.UpdatePreservedRendererProxies();
-                    frameBudgetUsedMs += mod.EndPerformanceMetric(PerformanceMetricProxyUpdate, start, memory);
-                }
+                    float proxyInterval = mod.GetProxyUpdateInterval();
+                    bool urgentProxyUpdate = proxyInterval <= 0f;
+                    if (now >= nextProxyUpdateTime && (urgentProxyUpdate || mod.TryEnterScheduledTask(ref ranNormalTask, ref frameBudgetUsedMs, false)))
+                    {
+                        nextProxyUpdateTime = now + proxyInterval;
+                        long memory;
+                        long start = mod.BeginPerformanceMetric(out memory);
+                        mod.UpdatePreservedRendererProxies();
+                        frameBudgetUsedMs += mod.EndPerformanceMetric(PerformanceMetricProxyUpdate, start, memory);
+                    }
 
-                float preserveInterval = mod.GetPreservedRendererSyncInterval();
-                bool urgentDrawSync = mod.preserveDrawSyncRequested || preserveInterval <= 0f;
-                if ((urgentDrawSync || now >= nextPreserveDrawTime) && mod.TryEnterScheduledTask(ref ranNormalTask, ref frameBudgetUsedMs, urgentDrawSync))
-                {
-                    mod.preserveDrawSyncRequested = false;
-                    nextPreserveDrawTime = now + preserveInterval;
-                    long memory;
-                    long start = mod.BeginPerformanceMetric(out memory);
-                    mod.SyncPreservedRendererDraws();
-                    frameBudgetUsedMs += mod.EndPerformanceMetric(PerformanceMetricDrawSync, start, memory);
+                    float preserveInterval = mod.GetPreservedRendererSyncInterval();
+                    bool urgentDrawSync = mod.preserveDrawSyncRequested || preserveInterval <= 0f;
+                    if ((urgentDrawSync || now >= nextPreserveDrawTime) && mod.TryEnterScheduledTask(ref ranNormalTask, ref frameBudgetUsedMs, urgentDrawSync))
+                    {
+                        mod.preserveDrawSyncRequested = false;
+                        nextPreserveDrawTime = now + preserveInterval;
+                        long memory;
+                        long start = mod.BeginPerformanceMetric(out memory);
+                        mod.SyncPreservedRendererDraws();
+                        frameBudgetUsedMs += mod.EndPerformanceMetric(PerformanceMetricDrawSync, start, memory);
+                    }
                 }
 
                 float stripInterval = mod.GetApplyStripInterval();
@@ -126,6 +132,7 @@ namespace ShaderStripMod
                 {
                     mod.CancelMaskPointerOnFocusLoss();
                     mod.UpdateCameraPin();
+                    mod.UpdateComposition();
                     mod.UpdateImageBackground();
                 }
             }

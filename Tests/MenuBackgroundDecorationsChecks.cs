@@ -48,9 +48,9 @@ namespace ShaderStripMod
     internal sealed class MenuMediaPlayback {internal bool Failed;internal UnityEngine.Texture Texture;}
     public sealed partial class ShaderStripMod
     {
-        bool visualsActive=true,customMenuEnabled=true,titleScene=true;
+        bool menuDesignEnabled=true,customMenuEnabled=true,titleScene=true;
         MenuMediaPlayback menuPlayback=new MenuMediaPlayback {Texture=new UnityEngine.Texture()};
-        bool IsCustomMenuActive(){return visualsActive&&customMenuEnabled&&titleScene;}
+        bool IsCustomMenuActive(){return menuDesignEnabled&&customMenuEnabled&&titleScene;}
         static int checks;
         static void Check(bool condition,string label){if(!condition)throw new Exception(label);checks++;}
         static MenuStyles Owner(params UnityEngine.GameObject[] roots)
@@ -85,8 +85,8 @@ namespace ShaderStripMod
             mod.menuPlayback.Failed=false;mod.UpdateMenuBackgroundDecorations();mod.menuPlayback.Failed=true;mod.UpdateMenuBackgroundDecorations();Check(background.enabled&&particleRenderer.enabled,"Playback failure restores standard menu artwork");
             mod.menuPlayback.Failed=false;mod.UpdateMenuBackgroundDecorations();mod.menuPlayback.Texture=null;mod.UpdateMenuBackgroundDecorations();Check(background.enabled,"Lost media Texture releases suppression");
             mod.menuPlayback.Texture=new UnityEngine.Texture();mod.UpdateMenuBackgroundDecorations();mod.titleScene=false;mod.UpdateMenuBackgroundDecorations();Check(background.enabled&&mod.menuDecorationOriginalEnabled.Count==0,"Leaving title scene restores decoration state");
-            mod.titleScene=true;mod.UpdateMenuBackgroundDecorations();mod.visualsActive=false;mod.UpdateMenuBackgroundDecorations();Check(background.enabled,"F12 disabling mod restores title artwork");
-            mod.visualsActive=true;mod.UpdateMenuBackgroundDecorations();mod.customMenuEnabled=false;mod.UpdateMenuBackgroundDecorations();Check(background.enabled,"Disabling custom design restores standard title artwork");
+            mod.titleScene=true;mod.UpdateMenuBackgroundDecorations();mod.menuDesignEnabled=false;mod.UpdateMenuBackgroundDecorations();Check(background.enabled,"Disabling menu design restores title artwork");
+            mod.menuDesignEnabled=true;mod.UpdateMenuBackgroundDecorations();mod.customMenuEnabled=false;mod.UpdateMenuBackgroundDecorations();Check(background.enabled,"Disabling custom design restores standard title artwork");
             mod.customMenuEnabled=true;mod.UpdateMenuBackgroundDecorations();MenuStyles.Instance=null;mod.UpdateMenuBackgroundDecorations();Check(background.enabled,"Destroyed menu style owner restores tracked resources");
             MenuStyles.Instance=styles;mod.UpdateMenuBackgroundDecorations();var replacementRoot=new UnityEngine.GameObject();var replacement=replacementRoot.Add<UnityEngine.SpriteRenderer>();styles.styles[0].styleObject=replacementRoot;mod.UpdateMenuBackgroundDecorations();
             Check(background.enabled&&particleRenderer.enabled&&!replacement.enabled,"Replacing root restores resources no longer owned and suppresses new root immediately");

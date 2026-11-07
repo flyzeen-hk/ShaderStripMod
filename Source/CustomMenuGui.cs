@@ -7,11 +7,18 @@ namespace ShaderStripMod
     public sealed partial class ShaderStripMod
     {
         private GUIStyle customMenuLabelStyle,customMenuButtonStyle;
-        private float customMenuContentHeight=1200;
+        private float customMenuContentHeight=1500;
         private void MenuDesignLabel(ref float y,float width,string text)
         {
             text=UiText(text);float h=Mathf.Max(20,customMenuLabelStyle.CalcHeight(new GUIContent(text),width));
             UiLabel(new Rect(0,y,width,h),text,customMenuLabelStyle);y+=h+6;
+        }
+        private void MenuDesignSection(ref float y,float width,string text)
+        {
+            if(string.IsNullOrEmpty(text)) return;
+            string localized=UiText(text);GUIStyle style=UiSectionHeaderStyle();
+            float h=Mathf.Max(22,style.CalcHeight(new GUIContent(localized),Mathf.Max(1,width)));
+            y+=10;UiLabel(new Rect(0,y,width,h),localized,style);y+=h+4;
         }
         private void DrawCustomMenuTab(Rect content)
         {
@@ -22,19 +29,37 @@ namespace ShaderStripMod
             textureBrowserDetailScroll=GUI.BeginScrollView(view,textureBrowserDetailScroll,new Rect(0,0,width,Mathf.Max(view.height,customMenuContentHeight)));
             MenuDesignLabel(ref y,width,"Custom title menu");
             MenuDesignLabel(ref y,width,"Background, logo and button text. Applies to the title menu; game buttons keep their actions.");
+            MenuDesignLabel(ref y,width,"This tab changes only the title menu. Gameplay background is in Settings; the media collage is in Panels.");
             MenuDesignLabel(ref y,width,customMenuMessage);
             if(!MenuMediaPolicy.IsTitleScene(GetActiveSceneName()))MenuDesignLabel(ref y,width,"Menu design can be edited here. Preview it in the title menu.");
             if(backgroundSettingsLabelStyle==null)backgroundSettingsLabelStyle=new GUIStyle(GUI.skin.label){wordWrap=true};
+            MenuDesignSection(ref y,width,"Enable");
+            bool designOn=DrawWrappedToggle(ref y,width,menuDesignEnabled,"Enable title menu design");
             bool enabled=DrawWrappedToggle(ref y,width,customMenuEnabled,"Enable custom menu");
+            MenuDesignLabel(ref y,width,"Title menu design is the master switch. Enable custom menu applies your imported background and logo.");
+            if(!designOn)MenuDesignLabel(ref y,width,"Enable title menu design above, then open the title menu to preview it.");
+            else if(!enabled)MenuDesignLabel(ref y,width,"Custom menu is off. Enable it to show your imported background and logo.");
+            MenuDesignSection(ref y,width,"Background and sound");
             bool chooseMedia=UiButton(new Rect(0,y,width,30),"Import background: image / GIF / video",customMenuButtonStyle);y+=36;
             MenuDesignLabel(ref y,width,UiText("Background: ")+(string.IsNullOrEmpty(customMenuFile)?UiText("Not selected"):customMenuFile));
+            if(menuPlayback!=null&&customMenuAudioEnabled&&menuPlayback.VideoHasNoAudioTrack)MenuDesignLabel(ref y,width,"This video has no audio track.");
             bool paused=DrawWrappedToggle(ref y,width,customMenuPaused,"Pause menu animation");
+            bool audioEnabled=DrawWrappedToggle(ref y,width,customMenuAudioEnabled,"Menu video sound");
+            MenuDesignLabel(ref y,width,"Video sound is optional and off by default. Mute overrides volume.");
+            bool muted=DrawWrappedToggle(ref y,width,customMenuMuted,"Mute menu video");
+            MenuDesignLabel(ref y,width,"Menu video volume");
+            float volume=GUI.HorizontalSlider(new Rect(0,y,width-65,24),customMenuVolume,0f,1f);
+            UiLabel(new Rect(width-60,y,60,24),Mathf.RoundToInt(volume*100)+"%");y+=32;
+            MenuDesignLabel(ref y,width,"All menu media volume");
+            float master=GUI.HorizontalSlider(new Rect(0,y,width-65,24),menuMediaMasterVolume,0f,1f);
+            UiLabel(new Rect(width-60,y,60,24),Mathf.RoundToInt(master*100)+"%");y+=32;
             bool restart=UiButton(new Rect(0,y,width,28),"Restart / retry media");y+=34;
             MenuDesignLabel(ref y,width,"Background placement");
             string layout=customMenuLayout;
             if(DrawModeButton(new Rect(0,y,width,26),"Fill screen (crop edges)",layout=="Cover"))layout="Cover";y+=30;
             if(DrawModeButton(new Rect(0,y,width,26),"Fit entire image (keep proportions)",layout=="Contain"))layout="Contain";y+=30;
             if(DrawModeButton(new Rect(0,y,width,26),"Stretch to screen",layout=="Stretch"))layout="Stretch";y+=34;
+            MenuDesignSection(ref y,width,"Logo and buttons");
             bool chooseLogo=UiButton(new Rect(0,y,half,30),"Import logo (PNG / JPG)",customMenuButtonStyle);
             bool clearLogo=UiButton(new Rect(half+6,y,half,30),"Use game logo",customMenuButtonStyle);y+=36;
             MenuDesignLabel(ref y,width,UiText("Logo: ")+(string.IsNullOrEmpty(customMenuLogoFile)?UiText("Game logo"):customMenuLogoFile));
@@ -49,7 +74,7 @@ namespace ShaderStripMod
             float scale=GUI.HorizontalSlider(new Rect(0,y,width-65,24),customMenuTextScale,.75f,1.35f);
             UiLabel(new Rect(width-60,y,60,24),Mathf.RoundToInt(scale*100)+"%");y+=32;
             bool reset=UiButton(new Rect(0,y,width,28),"Reset menu design");y+=36;
-            MenuDesignLabel(ref y,width,"Imported menu media");
+            MenuDesignSection(ref y,width,"Imported menu media");
             string background=null,logo=null,remove=null;
             foreach(string name in menuMediaFiles)
             {
@@ -58,11 +83,12 @@ namespace ShaderStripMod
                 if(UiButton(new Rect(0,y,third,28),"As background"))background=name;
                 bool old=GUI.enabled;GUI.enabled=old&&MenuMediaPolicy.IsImage(Path.GetExtension(name));
                 if(UiButton(new Rect(third+6,y,third,28),"As logo"))logo=name;GUI.enabled=old;
-                if(UiButton(new Rect(2*(third+6),y,third,28),"Remove"))remove=name;y+=36;
+                if(UiDangerButton(new Rect(2*(third+6),y,third,28),"Remove"))remove=name;y+=36;
             }
-            MenuDesignLabel(ref y,width,"PNG/JPG backgrounds and logos, animated GIF, MP4/WebM/MOV/M4V/AVI video. Video is silent and looped; codecs depend on Unity/Windows. MP4 H.264 is the preferred format.");
-            MenuDesignLabel(ref y,width,"F9 pause also freezes menu animation. Media removal keeps a recoverable copy in menu-media/removed.");
+            MenuDesignLabel(ref y,width,"PNG/JPG backgrounds and logos, animated GIF, MP4/WebM/MOV/M4V/AVI video. Video is silent unless Menu video sound is enabled; codecs depend on Unity/Windows. MP4 H.264 is the preferred format.");
+            MenuDesignLabel(ref y,width,HotkeyText("Pause while the browser is open{keySuffix} also freezes menu animation. Media removal keeps a recoverable copy in menu-media/removed.",HotkeyActions.ToggleBrowser));
             RefreshMenuTrashFiles();
+            MenuDesignSection(ref y,width,"Trash");
             MenuDesignLabel(ref y,width,"Removed menu media (trash)");
             MenuDesignLabel(ref y,width,menuTrashFiles.Count==0
                 ? "Menu media trash is empty."
@@ -78,42 +104,44 @@ namespace ShaderStripMod
                 if(string.Equals(pendingDeleteMenuTrash,item.Path,StringComparison.OrdinalIgnoreCase))
                 {
                     MenuDesignLabel(ref y,width,"Click Delete permanently again to confirm. This cannot be undone.");
-                    if(UiButton(new Rect(0,y,trashHalf,28),"Delete permanently"))deleteTrashMedia=item.Path;
+                    if(UiDangerButton(new Rect(0,y,trashHalf,28),"Delete permanently"))deleteTrashMedia=item.Path;
                     if(UiButton(new Rect(trashHalf+6,y,trashHalf,28),"Cancel"))cancelDeleteTrashMedia=true;
                     y+=36;
                     continue;
                 }
 
                 if(UiButton(new Rect(0,y,trashHalf,28),"Restore"))restoreTrashMedia=item.Path;
-                if(UiButton(new Rect(trashHalf+6,y,trashHalf,28),"Delete permanently"))requestDeleteTrashMedia=item.Path;
+                if(UiDangerButton(new Rect(trashHalf+6,y,trashHalf,28),"Delete permanently"))requestDeleteTrashMedia=item.Path;
                 y+=36;
             }
             if(menuTrashFiles.Count>0)
             {
                 if(!confirmEmptyMenuTrash)
                 {
-                    if(UiButton(new Rect(0,y,Mathf.Min(180,width),28),"Empty menu media trash..."))
+                    if(UiDangerButton(new Rect(0,y,Mathf.Min(180,width),28),"Empty menu media trash..."))
                     {
                         confirmEmptyMenuTrash=true;
-                        customMenuMessage="Click Empty trash again to permanently delete "+menuTrashFiles.Count+" file(s).";
+                        customMenuMessage=TrashEmptyPromptMessage(menuTrashFiles.Count);
                     }
                     y+=36;
                 }
                 else
                 {
-                    MenuDesignLabel(ref y,width,"Permanently delete "+menuTrashFiles.Count+" file(s), "+MediaTrashPolicy.FormatSize(menuTrashBytes)+"? This cannot be undone.");
+                    MenuDesignLabel(ref y,width,TrashDeleteConfirmMessage(menuTrashFiles.Count,menuTrashBytes));
                     float confirmHalf=Mathf.Max(40,(width-6)/2);
-                    if(UiButton(new Rect(0,y,confirmHalf,28),"Empty trash"))emptyTrashMedia=true;
+                    if(UiDangerButton(new Rect(0,y,confirmHalf,28),"Empty trash"))emptyTrashMedia=true;
                     if(UiButton(new Rect(confirmHalf+6,y,confirmHalf,28),"Cancel"))confirmEmptyMenuTrash=false;
                     y+=36;
                 }
             }
-            if(!visualsActive)MenuDesignLabel(ref y,width,"Enable the mod visuals with F12 to preview your menu.");
             GUI.EndScrollView();customMenuContentHeight=y+16;
-            bool changed=enabled!=customMenuEnabled||paused!=customMenuPaused||layout!=customMenuLayout||color!=customMenuTextColor||Mathf.Abs(scale-customMenuTextScale)>.001f;
+            if(designOn!=menuDesignEnabled)SetMenuDesignEnabled(designOn);
+            bool changed=enabled!=customMenuEnabled||paused!=customMenuPaused||layout!=customMenuLayout||color!=customMenuTextColor||Mathf.Abs(scale-customMenuTextScale)>.001f
+                ||audioEnabled!=customMenuAudioEnabled||muted!=customMenuMuted||Mathf.Abs(volume-customMenuVolume)>.001f||Mathf.Abs(master-menuMediaMasterVolume)>.001f;
             if(changed)
             {
                 customMenuEnabled=enabled;customMenuPaused=paused;customMenuLayout=layout;customMenuTextColor=color;customMenuTextScale=scale;
+                customMenuAudioEnabled=audioEnabled;customMenuMuted=muted;customMenuVolume=MediaAudioPolicy.ClampVolume(volume,MediaAudioPolicy.DefaultVolume);menuMediaMasterVolume=MediaAudioPolicy.ClampVolume(master,MediaAudioPolicy.DefaultMasterVolume);
                 SaveExportSettings();UpdateCustomMenu();UpdateImageBackground();
             }
             if(restart){ReleaseMenuPlayback();UpdateCustomMenu();}

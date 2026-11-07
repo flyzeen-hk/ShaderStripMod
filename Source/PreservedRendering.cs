@@ -163,6 +163,7 @@ namespace ShaderStripMod
             }
 
             preserveRunStats.Sources = preservedRendererDrawSources.Count;
+            preserveRunStats.ScanCompleted = true;
         }
 
         private void AddPreservedRendererCandidateDuringScan(Renderer renderer)
@@ -644,7 +645,7 @@ namespace ShaderStripMod
 
         private void HandleProjectileVisualEnabled(GameObject visualObject)
         {
-            if (!initialized || !visualsActive || heroLayer < 0 || visualObject == null || IsMenuScene(GetActiveSceneName()))
+            if (!initialized || !gameplayIsolationEnabled || heroLayer < 0 || visualObject == null || IsMenuScene(GetActiveSceneName()))
             {
                 return;
             }
@@ -713,6 +714,11 @@ namespace ShaderStripMod
 
         private bool HasEffectivePreserveRules()
         {
+            if (CaptureRulesSuspended)
+            {
+                return false;
+            }
+
             if (HasActiveSpriteMasks() || HasEffectiveRendererPreserveRules())
             {
                 return true;

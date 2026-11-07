@@ -16,15 +16,20 @@ namespace ShaderStripMod
         private GifAnimation animation;
         private GifAnimation.Playback gif;
         private byte[] upload;
+        private AudioSource audioSource;
+        private MediaAudioSettings audioSettings;
         private bool disposed,paused,failed;
         private float lastTime,prepareStarted;
         internal string Message {get;private set;}
         internal Texture Texture {get {return disposed||failed ? null : (image!=null ? image : (video!=null&&video.isPrepared ? video.texture : null));}}
         internal bool Animated {get {return gif!=null||pending!=null||video!=null;}}
         internal bool Failed {get {return failed;}}
-        internal MenuMediaPlayback(string path,bool initiallyPaused=false)
+        internal bool AudioEnabled {get {return audioSettings.Enabled;}}
+        internal bool VideoHasNoAudioTrack {get {return video!=null&&video.isPrepared&&video.audioTrackCount==0;}}
+        internal MenuMediaPlayback(string path,bool initiallyPaused=false) : this(path,initiallyPaused,MediaAudioSettings.Silent) { }
+        internal MenuMediaPlayback(string path,bool initiallyPaused,MediaAudioSettings audio)
         {
-            paused=initiallyPaused;lastTime=Time.realtimeSinceStartup;Message="Loading menu media...";
+            audioSettings=audio;paused=initiallyPaused;lastTime=Time.realtimeSinceStartup;Message="Loading menu media...";
             try
             {
                 var file=new FileInfo(path);string ext=Path.GetExtension(path);
@@ -45,9 +50,10 @@ namespace ShaderStripMod
                     videoObject=new GameObject("ShaderStripMod Menu Video") {hideFlags=HideFlags.HideAndDontSave};
                     UnityEngine.Object.DontDestroyOnLoad(videoObject);
                     video=videoObject.AddComponent<VideoPlayer>();video.playOnAwake=false;video.source=VideoSource.Url;
-                    video.renderMode=VideoRenderMode.APIOnly;video.audioOutputMode=VideoAudioOutputMode.None;
+                    video.renderMode=VideoRenderMode.APIOnly;
                     video.isLooping=true;video.waitForFirstFrame=true;video.timeReference=VideoTimeReference.Freerun;
                     if(video.canSetSkipOnDrop)video.skipOnDrop=true;
+                    ConfigureVideoAudio();
                     // Unity's Windows Media Foundation backend treats escaped file-URI characters
                     // as literal path characters. Keep Unicode, spaces and percent signs intact.
                     video.url=Path.GetFullPath(path);video.errorReceived+=OnVideoError;video.prepareCompleted+=OnVideoPrepared;
@@ -59,11 +65,34 @@ namespace ShaderStripMod
         }
         private static void ConfigureTexture(Texture2D texture)
         {texture.name="ShaderStripMod Menu Media";texture.hideFlags=HideFlags.HideAndDontSave;texture.filterMode=FilterMode.Bilinear;texture.wrapMode=TextureWrapMode.Clamp;}
+        private void ConfigureVideoAudio()
+        {
+            if(video==null)return;
+            if(!audioSettings.Enabled){video.audioOutputMode=VideoAudioOutputMode.None;return;}
+            audioSource=videoObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake=false;audioSource.loop=true;audioSource.spatialBlend=0f;
+            audioSource.mute=audioSettings.Muted;audioSource.volume=audioSettings.EffectiveVolume;
+            if(video.controlledAudioTrackCount<1)video.controlledAudioTrackCount=1;
+            video.audioOutputMode=VideoAudioOutputMode.AudioSource;
+            video.SetTargetAudioSource(0,audioSource);
+        }
+        internal void ApplyAudio(MediaAudioSettings settings)
+        {
+            // The caller creates a new surface when the output route changes.
+            if(settings.Enabled!=audioSettings.Enabled)return;
+            audioSettings=settings;
+            if(audioSource!=null){audioSource.volume=settings.EffectiveVolume;audioSource.mute=settings.Muted;}
+        }
         private void OnVideoPrepared(VideoPlayer source)
         {
             if(disposed||source!=video||failed)return;
             if(source.width>8192||source.height>8192){Fail("Video dimensions exceed 8192.");return;}
-            Message="Menu video ready (silent, looped).";if(!paused)source.Play();
+            Message=!audioSettings.Enabled
+                ? "Menu video ready (silent, looped)."
+                : source.audioTrackCount==0
+                    ? "Menu video ready (looped, no audio track)."
+                    : (audioSettings.Muted ? "Menu video ready (looped, muted)." : "Menu video ready (looped, sound on).");
+            if(!paused)source.Play();
         }
         private void OnVideoError(VideoPlayer source,string message)
         {if(!disposed&&!failed&&source==video)Fail("Video cannot play: "+message+". Try an MP4 encoded with H.264.");}
@@ -117,7 +146,7 @@ namespace ShaderStripMod
             if(disposed)return;disposed=true;
             if(decodeCancellation!=null){decodeCancellation.Cancel();decodeCancellation.Dispose();decodeCancellation=null;}
             if(pending!=null)pending.ContinueWith(t=>{var observed=t.Exception;},TaskContinuationOptions.OnlyOnFaulted);
-            pending=null;gif=null;animation=null;upload=null;
+            pending=null;gif=null;animation=null;upload=null;audioSource=null;
             // Transfer ownership before native calls: Stop may throw, and Dispose must still destroy
             // all of our objects on this first call (subsequent calls are deliberately harmless).
             var ownedVideo=video;var ownedVideoObject=videoObject;var ownedImage=image;

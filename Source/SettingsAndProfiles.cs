@@ -38,6 +38,7 @@ namespace ShaderStripMod
             preserveFilePath = PreserveFileName;
             dumpFilePath = DumpFileName;
             settingsFilePath = SettingsFileName;
+            capturePresetFilePath = CapturePresetFileName;
             Log("ShaderStripMod using current directory for preserve/dump files.");
         }
 
@@ -60,6 +61,7 @@ namespace ShaderStripMod
                 preserveFilePath = candidatePreservePath;
                 dumpFilePath = Path.Combine(directory, DumpFileName);
                 settingsFilePath = Path.Combine(directory, SettingsFileName);
+                capturePresetFilePath = Path.Combine(directory, CapturePresetFileName);
                 return true;
             }
             catch (System.Exception ex)
@@ -72,6 +74,21 @@ namespace ShaderStripMod
         private void LoadExportSettings()
         {
             customMenuEnabled=customMenuPaused=false;customMenuFile=customMenuLogoFile="";customMenuLayout="Cover";customMenuTextColor="Original";customMenuTextScale=1;
+            customMenuAudioEnabled=false;customMenuMuted=false;customMenuVolume=MediaAudioPolicy.DefaultVolume;menuMediaMasterVolume=MediaAudioPolicy.DefaultMasterVolume;
+            compositionEnabled=false;compositionProfile=CompositionProfile.CreateDefault();
+            bool configuredGameplayIsolationEnabled=true;
+            bool configuredMenuDesignEnabled=true;
+            bool configuredCompositionEnabled=false;
+            string configuredCompositionLayout=CompositionPolicy.LayoutThreeColumns;
+            string configuredCompositionLeftFile="";
+            string configuredCompositionRightFile="";
+            bool configuredCompositionLeftPaused=false;
+            bool configuredCompositionRightPaused=false;
+            bool hasLegacyCompositionSettings=false;
+            bool configuredCustomMenuAudioEnabled=false;
+            bool configuredCustomMenuMuted=false;
+            float configuredCustomMenuVolume=MediaAudioPolicy.DefaultVolume;
+            float configuredMenuMediaMasterVolume=MediaAudioPolicy.DefaultMasterVolume;
             string configuredUiLanguage = "English";
             string configuredMode = "";
             string configuredDirectory = "";
@@ -153,6 +170,23 @@ namespace ShaderStripMod
                         else if (string.Equals(key,"customMenuTextColor",System.StringComparison.OrdinalIgnoreCase)) customMenuTextColor=NormalizeMenuTextColor(line.Substring(separator+1).Trim());
                         else if (string.Equals(key,"customMenuTextScale",System.StringComparison.OrdinalIgnoreCase))
                         {float parsed;if(float.TryParse(line.Substring(separator+1).Trim(),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out parsed)&&!float.IsNaN(parsed)&&!float.IsInfinity(parsed))customMenuTextScale=Mathf.Clamp(parsed,.75f,1.35f);}
+                        else if (string.Equals(key,"gameplayIsolationEnabled",System.StringComparison.OrdinalIgnoreCase)) configuredGameplayIsolationEnabled=ParseSettingsBool(line.Substring(separator+1),configuredGameplayIsolationEnabled);
+                        else if (string.Equals(key,"menuDesignEnabled",System.StringComparison.OrdinalIgnoreCase)) configuredMenuDesignEnabled=ParseSettingsBool(line.Substring(separator+1),configuredMenuDesignEnabled);
+                        else if (string.Equals(key,"compositionEnabled",System.StringComparison.OrdinalIgnoreCase)) configuredCompositionEnabled=ParseSettingsBool(line.Substring(separator+1),configuredCompositionEnabled);
+                        else if (string.Equals(key,"compositionLayout",System.StringComparison.OrdinalIgnoreCase))
+                        {configuredCompositionLayout=line.Substring(separator+1).Trim();hasLegacyCompositionSettings=true;}
+                        else if (string.Equals(key,"compositionLeftFile",System.StringComparison.OrdinalIgnoreCase))
+                        {configuredCompositionLeftFile=CleanPathSetting(line.Substring(separator+1));hasLegacyCompositionSettings=true;}
+                        else if (string.Equals(key,"compositionRightFile",System.StringComparison.OrdinalIgnoreCase))
+                        {configuredCompositionRightFile=CleanPathSetting(line.Substring(separator+1));hasLegacyCompositionSettings=true;}
+                        else if (string.Equals(key,"compositionLeftPaused",System.StringComparison.OrdinalIgnoreCase))
+                        {configuredCompositionLeftPaused=ParseSettingsBool(line.Substring(separator+1),configuredCompositionLeftPaused);hasLegacyCompositionSettings=true;}
+                        else if (string.Equals(key,"compositionRightPaused",System.StringComparison.OrdinalIgnoreCase))
+                        {configuredCompositionRightPaused=ParseSettingsBool(line.Substring(separator+1),configuredCompositionRightPaused);hasLegacyCompositionSettings=true;}
+                        else if (string.Equals(key,"customMenuAudioEnabled",System.StringComparison.OrdinalIgnoreCase)) configuredCustomMenuAudioEnabled=ParseSettingsBool(line.Substring(separator+1),configuredCustomMenuAudioEnabled);
+                        else if (string.Equals(key,"customMenuMuted",System.StringComparison.OrdinalIgnoreCase)) configuredCustomMenuMuted=ParseSettingsBool(line.Substring(separator+1),configuredCustomMenuMuted);
+                        else if (string.Equals(key,"customMenuVolume",System.StringComparison.OrdinalIgnoreCase)) configuredCustomMenuVolume=MediaAudioPolicy.ClampVolume(ParseSettingsFloat(line.Substring(separator+1),configuredCustomMenuVolume),configuredCustomMenuVolume);
+                        else if (string.Equals(key,"menuMediaMasterVolume",System.StringComparison.OrdinalIgnoreCase)) configuredMenuMediaMasterVolume=MediaAudioPolicy.ClampVolume(ParseSettingsFloat(line.Substring(separator+1),configuredMenuMediaMasterVolume),configuredMenuMediaMasterVolume);
                         else if (string.Equals(key, "exportFolderMode", System.StringComparison.OrdinalIgnoreCase))
                         {
                             configuredMode = NormalizeExportFolderMode(line.Substring(separator + 1));
@@ -365,7 +399,27 @@ namespace ShaderStripMod
             backgroundImageLayout = NormalizeBackgroundImageLayout(configuredBackgroundImageLayout);
             preservedObjectOrder = NormalizePreservedObjectOrder(configuredPreservedObjectOrder);
             InitializeBackgroundImagePaths();InitializeCustomMenuPaths();
+            if (hasLegacyCompositionSettings && !CompositionProfileFileExists())
+            {
+                MigrateLegacyCompositionSettings(configuredCompositionLayout, configuredCompositionLeftFile,
+                    configuredCompositionRightFile, configuredCompositionLeftPaused, configuredCompositionRightPaused);
+                SaveCompositionProfile();
+                compositionProfileMessage = "Old composition settings moved to the preset file.";
+            }
+            else
+            {
+                LoadCompositionProfile();
+            }
+
+            LoadHotkeyProfile();
             pauseGameWhileBrowserOpen = configuredPauseGameWhileBrowserOpen;
+            gameplayIsolationEnabled = configuredGameplayIsolationEnabled;
+            menuDesignEnabled = configuredMenuDesignEnabled;
+            compositionEnabled = configuredCompositionEnabled;
+            customMenuAudioEnabled = configuredCustomMenuAudioEnabled;
+            customMenuMuted = configuredCustomMenuMuted;
+            customMenuVolume = MediaAudioPolicy.ClampVolume(configuredCustomMenuVolume,MediaAudioPolicy.DefaultVolume);
+            menuMediaMasterVolume = MediaAudioPolicy.ClampVolume(configuredMenuMediaMasterVolume,MediaAudioPolicy.DefaultMasterVolume);
             visualOverridesEnabled = configuredVisualOverridesEnabled;
             colorOverridesEnabled = configuredColorOverridesEnabled;
             textureReplacementsEnabled = configuredTextureReplacementsEnabled;
@@ -445,7 +499,7 @@ namespace ShaderStripMod
                 builder.AppendLine("# backgroundColor can be Green, Blue, Red, Yellow, Cyan, Magenta, Orange, White, or Black.");
                 builder.AppendLine("# backgroundMode can be Color or Image. Images are loaded from background-images beside the mod DLL.");
                 builder.AppendLine("# backgroundImageLayout can be Cover (crop), Contain (borders), or Stretch.");
-                builder.AppendLine("# pauseGameWhileBrowserOpen controls whether F9 pauses Time.timeScale while the browser is open during gameplay.");
+                builder.AppendLine("# pauseGameWhileBrowserOpen controls whether the browser pauses Time.timeScale while it is open during gameplay.");
                 builder.AppendLine("# Visual override switches are reserved for the staged visual-rules runtime. Parts 1-2 only load and diagnose rules; they never mutate renderers.");
                 builder.AppendLine("# performanceProfile can be Quality, Balanced, Performance, Ultra, or Custom.");
                 builder.AppendLine("# projectileCaptureMode can be OnlyProjectilesTab, BrowserOpen, Always, or Manual.");
@@ -462,7 +516,14 @@ namespace ShaderStripMod
                     builder.AppendLine("# resolvedExportFolder=" + exportDirectory);
                 }
 
+                builder.AppendLine("# gameplayIsolationEnabled controls shader/background work in rooms (toggle with the isolation hotkey).");
+                builder.AppendLine("# menuDesignEnabled controls the custom title menu independently of gameplay (browser > Settings).");
                 builder.AppendLine("# Custom title menu media lives in menu-media; gameplay background settings remain separate.");
+                builder.AppendLine("gameplayIsolationEnabled="+FormatSettingsBool(gameplayIsolationEnabled));
+                builder.AppendLine("menuDesignEnabled="+FormatSettingsBool(menuDesignEnabled));
+                builder.AppendLine("# compositionEnabled draws the zero-gap media collage behind the hero. It requires gameplay isolation.");
+                builder.AppendLine("# Composition layout, placement, files and audio are stored in ShaderStripMod.composition.txt.");
+                builder.AppendLine("compositionEnabled="+FormatSettingsBool(compositionEnabled));
                 builder.AppendLine("customMenuEnabled="+customMenuEnabled);
                 builder.AppendLine("customMenuPaused="+customMenuPaused);
                 builder.AppendLine("customMenuFile="+(customMenuFile??""));
@@ -470,6 +531,11 @@ namespace ShaderStripMod
                 builder.AppendLine("customMenuLayout="+customMenuLayout);
                 builder.AppendLine("customMenuTextColor="+customMenuTextColor);
                 builder.AppendLine("customMenuTextScale="+customMenuTextScale.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                builder.AppendLine("# Video sound is opt-in. Effective volume = customMenuVolume * menuMediaMasterVolume; mute overrides both.");
+                builder.AppendLine("customMenuAudioEnabled="+FormatSettingsBool(customMenuAudioEnabled));
+                builder.AppendLine("customMenuMuted="+FormatSettingsBool(customMenuMuted));
+                builder.AppendLine("customMenuVolume="+FormatSettingsFloat(MediaAudioPolicy.ClampVolume(customMenuVolume,MediaAudioPolicy.DefaultVolume)));
+                builder.AppendLine("menuMediaMasterVolume="+FormatSettingsFloat(MediaAudioPolicy.ClampVolume(menuMediaMasterVolume,MediaAudioPolicy.DefaultMasterVolume)));
                 builder.AppendLine("uiLanguage=" + UiLocalization.NormalizeLanguage(uiLanguage));
                 builder.AppendLine("backgroundColor=" + NormalizeBackgroundColorName(backgroundColorName));
                 builder.AppendLine("backgroundMode=" + NormalizeBackgroundMode(backgroundMode));
@@ -594,7 +660,7 @@ namespace ShaderStripMod
 
         private void ApplySelectedBackgroundColor()
         {
-            if (!visualsActive)
+            if (!gameplayIsolationEnabled && !menuDesignEnabled)
             {
                 return;
             }
@@ -854,7 +920,7 @@ namespace ShaderStripMod
             ClearRuntimeCaches();
             MarkPreservedRendererCacheDirty();
             preserveDrawSyncRequested = true;
-            if (visualsActive)
+            if (gameplayIsolationEnabled || menuDesignEnabled)
             {
                 ApplyStrip();
             }

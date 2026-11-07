@@ -52,7 +52,7 @@ namespace ShaderStripMod
                     cameraPinUpdateHook=new Hook(update,new Action<Action<CameraController>,CameraController>(OnPinnedCameraLateUpdate));
                 }
                 cameraPin.Capture(controller.transform,GetActiveSceneName());pinnedCameraController=controller;
-                cameraPinMessage="Camera pinned here. Press F8 again to release.";
+                cameraPinMessage="Camera pinned here.";
             }
             catch(Exception ex){ReleaseCameraPin("Camera could not be pinned.");Log("Camera pin failed: "+ex.Message);}
         }

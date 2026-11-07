@@ -1,22 +1,114 @@
 # ShaderStripMod: структура, взаимодействия и план развития
 
-Дата обновления: 2026-11-01
-Текущая версия по исходникам: `v1.29.31`
+Дата обновления: 2026-11-02
+Текущая версия по исходникам: `v1.31.1`
 Главный класс: `ShaderStripMod`, физически разделённый на тематические `partial`-файлы в `Source/`
 
-## Стабильная 1.29.31
+## Стабильная 1.31.1 — транзакционные пресеты, защита composition-файла и узкий F9
+
+Версия закрывает аудит 1.31.0. `SavePreserveList` теперь возвращает признак успеха и сохраняет текст ошибки; применение пресета захвата сначала создаёт бэкап preserve-файла, затем снимает снимок правил и состояния, и при ошибке записи восстанавливает правила, изоляцию, режим, hero layer и visible mask. Замена и удаление пресета тоже сначала создают бэкап и откатывают профиль при неудачной записи. Действия менеджера preserve (remove/clean/compact) стали транзакционными. `CompositionProfileCodec` проверяет `formatVersion` строго: 1 и 2 загружаются, неизвестная, нулевая, пустая или нечисловая версия отклоняется, а файл помечается защищённым и не перезаписывается автосохранением; Reset заменяет защищённый файл только после успешного бэкапа. Автосохранение больше не сбрасывает dirty при ошибке, повторяет запись через 5 секунд и показывает явный статус. Узкие панели F9 получили адаптивные сетки кнопок (режимы захвата, имя/сохранение пресета, Apply/Delete, раскладки, размещение, импорт/очистка плиток и назначение файлов). Добавлены предупреждения о нескольких анимированных плитках и видео больше 256 МиБ, индикатор отсутствия звуковой дорожки и уточнение, что плитки — фиксированные части одной композиции, а не окна. Размеры файлов кэшируются, чтобы не обращаться к диску на каждом OnGUI.
+
+Основные изменённые файлы: `Source/PreserveRules.cs`, `Source/PreserveManagerGui.cs`, `Source/CapturePresets.cs`, `Source/CompositionProfile.cs`, `Source/Composition.cs`, `Source/CompositionGui.cs`, `Source/MenuMediaPlayback.cs`, `Source/MediaSurface.cs`, `Source/CustomMenuGui.cs`, `Source/UiLocalization.cs`; тесты — `Tests/CompositionPolicyChecks.cs`, `Tests/MenuMediaChecks.cs`, `Tests/PersistenceChecks.cs`.
+
+Сборка 1.31.1 проходит с 0 warnings/0 errors; восемь проектов дают 159 612 assertion (RegressionChecks 4 570, PersistenceChecks 24, MenuMediaChecks 146 058). Установленная DLL совпадает со сборкой по SHA-256 `da741bd04dadc322a9d4857b50279b86b9799b5967113412bdbcc9f7df205183`; PDB `60ac225e60a90a2162f55dffe938056e4516b70fc4a7a4476610d57bb91987d4`. Pre-install копии 1.31.0: `ShaderStripMod.dll.bak_before_v1.31.1_20261102_002459` и `ShaderStripMod.pdb.bak_before_v1.31.1_20261102_002459`; бэкапы исходников и установленной 1.31.0 — `backups-history/backup_20261102_000946_v1.31.0_pre_1.31.1_audit_fixes/` и `backups-history/backup_20261102_000946_v1.31.0_installed_pre_1.31.1/`. Живой прогон не выполнен; версия не тегировалась и не публиковалась.
+
+## Стабильная 1.31.0 — режимы захвата и пресеты preserve-правил
+
+В F9 → Settings появился блок «Режим захвата» с четырьмя режимами: Selected objects (работают preserve-правила), Hero + attacks (герой и эффекты атак, preserve-правила временно приостанавливаются), Hero only (дополнительно скрываются эффекты атак) и Full scene (исходная комната, изоляция геймплея выключена). Переключение режима не редактирует и не удаляет сохранённые правила. В режимах Hero preserve-сканирование сообщает состояние Suspended, а CommandBuffer, proxies и маски не применяются; при возврате в Selected objects правила снова действуют. Hero only не добавляет слой Attack в маску героя и не продвигает эффекты атак. Включение изоляции выбирает Selected objects, выключение — Full scene.
+
+В том же блоке сохраняются пресеты: имя, Save preset, Apply preset и Delete preset с подтверждением вторым кликом. Пресет хранит снимок текущих preserve-правил и флаг изоляции в `ShaderStripMod.capture-presets.txt` (`formatVersion=1`, до 64 пресетов и 4096 правил в каждом). Перед заменой или удалением пресета файл пресетов копируется в уникальный `.bak_*`; перед применением создаётся бэкап `ShaderStripMod.preserve.txt`, после чего наборы правил заменяются и восстанавливается сохранённая изоляция. Маски, изображения, медиа и настройки композиции в пресет не входят. При ошибке записи профиль откатывается в памяти, чтобы не расходиться с файлом.
+
+Новый чистый файл `Source/CapturePresetProfile.cs` содержит `CapturePresetMode`, `CapturePresetState`, `CapturePresetPolicy`, `CapturePreset`, `CapturePresetProfile` и `CapturePresetCodec` без Unity; `Source/CapturePresets.cs` реализует загрузку, атомарное сохранение, бэкапы, действия Save/Apply/Delete и панель Settings. `Source/PreserveLimitPolicy.cs` получил состояние `Suspended` и перегрузку `Evaluate(..., rulesSuspended, ...)`, `Source/PreservedRendering.cs` отключает эффективные правила при приостановке, `Source/Rendering.cs` учитывает `CaptureShowsAttacks`, `Source/PreserveRules.cs` делит построение строк правил между preserve-файлом и снимком пресета, `Source/BrowserGui.cs` вставляет панель после состояния композиции, `Source/UiLocalization.cs` содержит английские и русские строки.
+
+Сборка 1.31.0 проходит с 0 warnings/0 errors; восемь проектов дают 159 598 assertion (RegressionChecks 4 561). Установленная DLL совпадает со сборкой по SHA-256 `f8b75cfcb86c19e1301f0a934b8fa79d2e549a19624cad62609265d2154adb4a`; PDB `612d9dfd97905bfdbd6d36f6e1672dcaad394f2ef54a714ecc88fc3fcc861fc6`. Pre-install бэкапы установленной 1.30.6: `backups-history/backup_20261101_183313_v1.30.6_pre_1.31.0_capture_presets/` и `backups-history/backup_20261101_183334_v1.30.6_installed_pre_1.31.0_capture_presets/`; промежуточная сборка 1.31.0 сохранена как `ShaderStripMod.dll.bak_before_v1.31.0_final_20261101_185446`. Живой прогон не выполнен; версия не тегировалась и не публиковалась.
+
+## Стабильная 1.30.6 — панель состояния захвата и статус лимитов preserve
+
+Вверху F9 → Settings появился блок только для чтения «Состояние захвата»: одной строкой показываются изоляция геймплея и оформление титульного меню, ниже — состояние камеры (следует за героем, закреплена в комнате или последнее сообщение фиксации) и состояние preserve-сканирования. Возможные состояния: изоляция выключена, нет правил, скан ещё не завершён, в комнате нет совпадений, достигнут лимит отрисовки или частиц, либо всё в норме. Если лимит скрывает подходящие объекты, рядом выводится подсказка, что изменить; при отсутствии правил — где их добавить. Тот же краткий статус показывается первой строкой во вкладке Performance («Пауза», «Нет preserve-правил», «Скан не завершён», «В комнате нет совпадений», «Достигнут лимит: скрыто draw N, particle M» или «Совпадений X, нарисовано Y, заблокировано Z; лимита нет»). Подробная сводка в F9 → Rules использует ту же логику, поэтому больше не пишет «лимит достигнут» при нулевых пропусках; «последний полный скан» появляется только после завершённого пересбора.
+
+Новый чистый файл `Source/PreserveLimitPolicy.cs` содержит `PreserveScanState` (IsolationOff, NoRules, Pending, NoMatches, LimitsReached, Healthy), структуру `PreserveScanStatus` и `PreserveLimitPolicy.Evaluate(isolationEnabled, ruleCount, stats)`. В `PreserveRunStats` добавлен флаг `ScanCompleted`, который сбрасывается в `ResetScan()` и выставляется в конце `RebuildPreservedRendererDrawSources`; благодаря ему состояние Pending честно отличается от «нет совпадений» даже при нулевом числе найденных объектов. `Source/BrowserGui.cs` собирает строку камеры и строку переключателей через отдельные helper-методы, `Source/PreserveDiagnosticsUi.cs` — шаблоны состояния и подсказок, `Source/UiLocalization.cs` — английские и русские строки.
+
+Сборка 1.30.6 проходит с 0 warnings/0 errors; восемь проектов дают 159 495 assertion (RegressionChecks 4 458). Установленная DLL совпадает со сборкой по SHA-256 `e367547541198fe3b53d1fec5930bd1ea355a0cdc9093ebd0a7877711356232a`; PDB `797bda3e3407d8f94d14806b3665185c21a2f6e7a1bf603433734f91980874cf`. Pre-install бэкапы установленной 1.30.5: `backups-history/backup_20261101_180955_v1.30.5_pre_1.30.6_capture_status/` и `backups-history/backup_20261101_181656_v1.30.5_installed_pre_1.30.6_capture_status/`. Живой прогон не выполнен; версия не тегировалась и не публиковалась.
+
+## Предыдущая стабильная 1.30.5 — исправление переключателя оформления меню
+
+Переключатель «Включить оформление главного меню» во вкладке F9 → Menu design теперь сохраняется и применяется сразу. Причина дефекта: вызов `SetMenuDesignEnabled(designOn)` находился внутри блока `if(changed)`, а сам `designOn` не входил в условие `changed`, поэтому одиночный клик по переключателю ничего не менял. Теперь вызов стоит сразу после `EndScrollView`, как в Settings. Рядом с двумя переключателями добавлено пояснение: «Оформление главного меню» — главный переключатель, «Включить своё оформление» применяет загруженный фон и логотип; при выключенном своём оформлении показывается отдельная подсказка. Старая подсказка убрана с конца длинной вкладки.
+
+Динамические подтверждения очистки корзины теперь локализованы: `TrashEmptyPromptMessage` и `TrashDeleteConfirmMessage` в `Source/MediaTrash.cs` подставляют количество и размер в переведённые шаблоны из `Source/UiLocalization.cs`. Это исправляет английские строки в русском интерфейсе в Settings и Menu design.
+
+Сборка 1.30.5 проходит с 0 warnings/0 errors; восемь проектов дают 159 483 assertion. Установленная DLL совпадает со сборкой по SHA-256 `721d06cb478b725895f508edb3db24ef5337ac06ff6a205b3d6eed00e236f374`; PDB `c1962b5633683513941e4fd596f9ed243ef0297e5bb103257c24b31e94743fa2`. Pre-install бэкап установленной 1.30.4: `backups-history/backup_20261101_175821_v1.30.4_installed_pre_1.30.5_menu_toggle/`. Живой прогон не выполнен; версия не тегировалась и не публиковалась.
+
+## Предыдущая стабильная 1.30.4 — проход по удобству интерфейса
+
+Изменений в игровом поведении, рендеринге и форматах файлов нет: версия делает F9-браузер понятнее. Заголовок окна локализован; под панелью вкладок постоянно показывается описание текущего режима (Loaded, Entities, Nearby, Atlases, Rules, Projectiles, Menu, Dump), внизу — подсказка Esc и фактически настроенных клавиш браузера, камеры и изоляции. У поиска появился placeholder и кнопка очистки; пустая область деталей объясняет, что нужно выбрать запись, и называет три точки входа — Settings для зелёного фона и камеры, Panels для коллажа, Menu design для титульного экрана.
+
+Вкладки разделены на группы: Info/Preview/Rules/Export/Mask относятся к выбранной записи, Settings/Panels/Menu design/Performance/Hotkeys — ко всему моду. В Settings статус перенесён наверх, блоки получили заголовки (язык, графика и камера, фон экрана, импортированные изображения, корзина, preserved-объекты), а Remove/Delete/Empty стали красными danger-кнопками. В Rules и preserve-менеджере появились заголовки разделов, пояснения к renderer/asset/path-правилам и подсказка при пустом выборе; Remove Rule — danger-кнопка. В Panels добавлены «How to use» из четырёх шагов, сводка коллажа (раскладка, placement, заполненные плитки, изоляция), пустые состояния плиток, кнопки назначения с номером панели и подтверждение Reset composition вторым кликом. В Menu design — заголовки разделов, примечание, что вкладка меняет только титульное меню, и danger-кнопки. В Hotkeys — пояснение, что Change захватывает следующую клавишу и сохраняет сразу.
+
+Сборка 1.30.4 проходит с 0 warnings/0 errors; восемь проектов дают те же 159 483 assertion. Установленная DLL совпадает со сборкой по SHA-256 `12b877be3e69165872ccfc6d49d5f860a9fe03e06ef14fb413b3ca827a73ebf5`; PDB `9c629c84b3bc6363db193eba3b17e9b83bf1f32c0472aeaa6bafbd13956c2d78`. Pre-install бэкап установленной 1.30.3: `backups-history/backup_20261101_172319_v1.30.3_installed_pre_1.30.4_ux/`. Живой прогон не выполнен; версия не тегировалась и не публиковалась.
+
+Новые строки интерфейса добавлены в `Source/UiLocalization.cs`; общие элементы — `UiDangerButton`, `UiSectionLabel`/`UiSectionHeaderStyle` в `Source/BrowserLocalization.cs`. Также исправлены старые переводы: `Browser` больше не переводится как «В F9», строки паузы говорят «при открытом браузере» вместо жёсткого F9.
+
+## Предыдущая стабильная 1.30.3 — полноэкранная медиакомпозиция
+
+F9 → Panels больше не делит экран на отдельные окна. Мировая камера по-прежнему очищается в цвет strip-фона, CommandBuffer `ShaderStripMod Media Collage` на `CameraEvent.BeforeForwardOpaque` рисует PNG/JPG/GIF/видео плитками на весь экран, а герой и preserve-объекты отрисовываются поверх на обычной камере. Нет RenderTexture-редиректа, своей выходной камеры и требования к HUD-камере, поэтому зелёный фон, preserve, BehindHero и InFront продолжают работать. Пустые плитки показывают цвет фона.
+
+Восемь раскладок — FullScreen, TwoVertical, TwoHorizontal, ThreeColumns, ThreeRows, MainAndSide, MainAndBottom и Grid2x2 — состоят только из медиаплиток. Соседние плитки имеют общую целочисленную границу и нулевой зазор; набор плиток всегда покрывает экран целиком. Размеры пересчитываются от `Screen.width`/`Screen.height`, окно меньше минимального размера плитки отклоняет раскладку (`LayoutUnavailable`), а не рисует невалидную геометрию.
+
+`Source/CompositionPolicy.cs` содержит чистую геометрию слотов, нормализацию placement (Cover/Contain/Stretch), имена плиток и машину причин неактивности без режимов HUD. `Source/CompositionProfile.cs` пишет `formatVersion=2` (`layout`, `placement`, четыре блока `panel.N.file|paused|sound|volume|muted`), игнорирует старый `gap` и сохраняет раскладку и назначенные файлы старого профиля. `Source/Composition.cs` владеет одним CommandBuffer, четырьмя мешами/материалами/`MediaSurface` и пересчитывает UV для Cover или вершины для Contain/Stretch; перед cull камера коллажа получает полный viewport, solid strip-фон и gameplay mask, а буфер пересобирается с финальными матрицами после LateUpdate. `Source/CompositionGui.cs` — вкладка Panels с раскладками, placement, четырьмя медиаплитками и списком импортированных файлов.
+
+При включённой композиции устаревший полноэкранный фон геймплея скрывается и возвращается без изменений после выключения. `compositionHudMode` больше не читается и не пишется в `ShaderStripMod.settings.txt`.
+
+Сборка 1.30.3 проходит с 0 warnings/0 errors; восемь проектов дают 159 483 assertion (RegressionChecks 4 446). Установленная DLL совпадает со сборкой по SHA-256 `459d42f314c95433e21eb1e171664c0a859dcf24b525110a9ff141898d16930f`. Живой игровой прогон не выполнен: порядок camera events, выравнивание плиток в комнатах и переходах не проверены. Версия не тегировалась и не публиковалась.
+
+## Предыдущая стабильная 1.30.2 — настраиваемые горячие клавиши
+
+Пять действий мода — браузер, фиксация камеры, дамп, перечитывание preserve-правил и изоляция геймплея — настраиваются во вкладке F9 → Hotkeys. По умолчанию остаются F9/F8/F10/F11/F12. Для действия доступны Change (захват следующей поддерживаемой клавиши), Clear key и Reset default; Reset all defaults восстанавливает весь профиль. Esc во время захвата отменяет его и не закрывает браузер.
+
+`Source/HotkeyProfile.cs` — чистая модель без Unity: стабильные action id, список допустимых клавиш (F1-F12, A-Z, Alpha0-Alpha9, Keypad0-Keypad9, Insert/Home/End/PageUp/PageDown/Delete/Backspace/Space и операторы цифрового блока), зарезервированные Esc/Enter/Tab/стрелки, проверка дублей и детерминированное исправление конфликтов. `HotkeyProfileCodec` пишет `ShaderStripMod.hotkeys.txt` (`formatVersion=1`) и терпимо читает комментарии, неизвестные действия, пустые и невалидные значения. Профиль сохраняется атомарно через `AtomicTextFile`.
+
+`Source/Hotkeys.cs` загружает/сохраняет профиль, разбирает имена клавиш в Unity `KeyCode`, ведёт захват и формирует динамические подписи `{key}`/`{keySuffix}`. `Source/HotkeysGui.cs` — десятая вкладка Hotkeys; при узком окне вкладки раскладываются в 3×4, в обычном — 5×2. `RuntimeLoop` больше не содержит жёстких F8-F12: все действия проходят через `ModHotkeyPolicy`, а захват клавиши потребляет ввод кадра.
+
+Сборка 1.30.2 проходит с 0 warnings/0 errors; восемь проектов дают 159 072 assertion (RegressionChecks 4 035). Живой игровой прогон не выполнен: захват клавиш, переназначение и сохранение после перезапуска не проверены. Версия не тегировалась и не публиковалась.
+
+## Предыдущая стабильная 1.30.1 — пресеты раскладок и медиа-панели
+
+F9 → Panels теперь работает с восемью пресетами: FullScreen, TwoVertical, TwoHorizontal, ThreeColumns, ThreeRows, MainAndSide, MainAndBottom и Grid2x2, с зазором 0-32 px. В каждой раскладке одна панель отводится живой игре, остальные (до трёх) принимают PNG/JPG/GIF или видео; у каждой панели свои пауза, звук, mute и громкость. Узкое окно откатывается к одной панели и неактивной композиции вместо невалидной геометрии.
+
+`Source/CompositionProfile.cs` — отдельный пресет `ShaderStripMod.composition.txt` (`formatVersion=1`): invariant-culture writer, терпимый parser комментариев/неизвестных ключей, нормализация layout, зажим gap/volume, проверка безопасного имени медиа и атомарная запись через `AtomicTextFile`. Пресет автосохраняется через 0.5 s после изменения и принудительно сбрасывается при выгрузке мода; во вкладке есть Save preset now, Reload preset и Reset composition. Настройки 1.30.0 (`compositionLayout`, `compositionLeftFile`, `compositionRightFile`, `compositionLeftPaused`, `compositionRightPaused`) один раз мигрируются в пресет, если файла ещё нет; в `ShaderStripMod.settings.txt` остаются только `compositionEnabled` и `compositionHudMode`.
+
+`CompositionPolicy` получил display names раскладок, имена панелей (левая/центральная/правая колонка, строки, main area, ячейки сетки) и индекс игровой панели для GUI. Импорт композиции принимает видео; повторный выбор уже загруженного файла здоровой панели ничего не пересоздаёт.
+
+Сборка 1.30.1 проходит с 0 warnings/0 errors; восемь проектов дают 158 682 assertion. Живой игровой прогон не выполнен: ориентация RenderTexture, многопанельный ввод/звук и изменение размера окна не проверены. Версия не тегировалась и не публиковалась.
+
+## Предыдущая стабильная 1.30.0 — прототип композиции панелей
+
+F9 → Panels включает трёхколоночную композицию: мировая и HUD-камеры перенаправляются в общий RenderTexture центральной панели, а собственная выходная камера (`cullingMask=0`, `depth=32000`) в `CameraEvent.AfterEverything` рисует чёрный фон и три панели через `CommandBuffer` и `SetViewport`. Левая и правая панели принимают PNG/JPG/GIF из `menu-media`, поддерживают паузу и очистку, изображение вписывается cover-fit без искажений.
+
+`Source/CompositionPolicy.cs` содержит чистую геометрию (доли колонок, минимальный размер, запрет пересечений, ограничение RenderTexture 4096 px), политику режимов HUD и упорядоченную машину причин неактивности. `Source/Composition.cs` реализует runtime: поиск камер, создание RT/материалов/мешей, перенаправление камер, загрузку `MediaSurface`, CommandBuffer и освобождение ресурсов. `Source/CompositionGui.cs` — вкладка Panels.
+
+Активация требует включённые composition и gameplay isolation, живого героя, игровую сцену вне перехода/катсцены и обе камеры. При меню, переходе, смерти героя, выключении F12, смене сцены, выгрузке мода или ошибке рендера композиция освобождает RT, камеры, буфер, материалы, меши и медиа. Режимы HUD `Hidden` и `OverlayFullScreen` сохраняются в настройках, но отклоняются в runtime до отдельного живого теста.
+
+Сборка 1.30.0 проходит с 0 warnings/0 errors; восемь проектов дают 157 887 assertion. Живой игровой прогон не выполнен: ориентация RenderTexture, HUD внутри панели, изменение размера окна и аппаратный GPU не проверены. Версия не тегировалась и не публиковалась.
+
+## Предыдущая стабильная 1.29.32
+
+`gameplayIsolationEnabled` и `menuDesignEnabled` — независимые сохраняемые переключатели. `F12` меняет только изоляцию геймплея; оформление титульного меню включается в F9 → Settings и во вкладке Menu design и продолжает работать при выключенном F12. `ApplyStrip`, камеры, фоновое изображение, preserve-цикл и диагностика используют соответствующий флаг вместо прежнего общего `visualsActive`.
+
+`Source/MediaAudioPolicy.cs` содержит чистую политику громкости: эффективная громкость = `customMenuVolume * menuMediaMasterVolume`, mute или выключенный звук дают 0, значения зажимаются в 0..1. `Source/MenuMediaPlayback.cs` по-прежнему молчит по умолчанию; при включённом звуке первый аудиотрек направляется в 2D `AudioSource` (`playOnAwake=false`, `loop=true`, `spatialBlend=0`). Смена маршрута звука пересоздаёт `VideoPlayer`, громкость и mute применяются без пересоздания. `Source/MediaSurface.cs` инкапсулирует один медиаплеер и станет основой многопанельной композиции в 1.30.x.
+
+Сборка 1.29.32 проходит с 0 warnings/0 errors; восемь проектов дают 157 611 assertion. Живой игровой прогон этой сборки ещё не выполнен: камера, независимые переключатели, звук видео и input-gate проверены заменами Unity/game API, а не реальной сессией.
 
 `GetVersion()` больше не содержит строковую константу: публичная версия берётся из assembly version, поэтому DLL, `VERSION.txt`, лог и менеджер модов совпадают. `Source/ModHotkeys.cs` вводит единый `ModHotkeyPolicy` для F8-F12 и Esc. Пока F9 открыт, F10-F12 не срабатывают из текстовых полей и других элементов браузера; F9 закрывает окно, Esc отменяет или закрывает его, F8 по-прежнему игнорируется. Закрытый F9 сохраняет прежние действия всех клавиш. Это baseline для будущей перенастройки hotkeys, а не новый редактор раскладки.
 
 `Source/RenderStatePolicy.cs` делит сцену на три состояния: меню, gameplay с героем и gameplay/переход без героя. `Rendering.ApplyStrip` в третьем состоянии больше не вызывает menu-ветку: восстанавливает предыдущий menu-фон и ждёт `HeroController.Start`. Это закрывает риск применения menu-маски к игровым камерам во время загрузки, смерти или нестандартной сцены.
 
-F8 игнорируется при открытом F9; камера управляется кнопкой в F9 → Settings. `DisableVisuals` вызывает только `RestoreVisuals`, поэтому F12 выключает и включает визуальный режим, не снимая фиксацию камеры. Сама фиксация по-прежнему освобождается при смене сцены, смерти, hazard death, переходе, катсцене, выходе из игры и выгрузке мода.
+F8 игнорируется при открытом F9; камера управляется кнопкой в F9 → Settings. `DisableGameplayVisuals` вызывает только восстановление геймплейного рендера, поэтому F12 выключает и включает изоляцию геймплея, не снимая фиксацию камеры и не выключая оформление меню. Сама фиксация по-прежнему освобождается при смене сцены, смерти, hazard death, переходе, катсцене, выходе из игры и выгрузке мода.
 
 `Source/PreserveDiagnostics.cs` и `Source/PreserveDiagnosticsUi.cs` добавляют счётчики `SyncPreservedRendererDraws`/полного scan (matched, drawn, blocked, skips by draw/particle limit, причины) в Performance и отчёт по выбранному правилу в Rules: сколько renderer-ов совпало, сколько в сцене, сколько пригодно к дорисовке, сколько в кэше, какой renderer выбран, его путь, слой, активные правила и причина пропуска. Отчёт явно говорит, что сопоставление идёт по renderer identity, пути, сцене и asset-именам, а не по смысловому типу объекта. Кэш отчёта сбрасывается при смене сцены, изменении правил и переключении F12; при выключенных визуалах счётчики очищены, а отчёт помечен как сухая проверка загруженных renderer-ов.
 
 `Source/MediaTrashPolicy.cs` и `Source/MediaTrash.cs` управляют подпапками `background-images/removed` и `menu-media/removed`: список файлов с размером, Restore без перезаписи (имя при конфликте получает суффикс ` (2)`), удаление одного файла и Empty trash — оба удаления требуют повторного подтверждения. UI находится в F9 → Settings и F9 → Menu design.
 
-Сборка 1.29.31 проходит с 0 warnings/0 errors; восемь проектов дают 157 592 assertion. Живой игровой прогон этой сборки ещё не выполнен: камера, F12, переходы и input-gate проверены заменами Unity/game API, а не реальной сессией.
+Сборка 1.29.31 проходила с 0 warnings/0 errors; восемь проектов дали 157 592 assertion.
 
 ## Предыдущая стабильная 1.29.29
 
@@ -88,6 +180,15 @@ ShaderStripMod сейчас похож на runtime chroma-key / green-screen м
 
 - `Source/MediaTrash.cs`, `Source/MediaTrashPolicy.cs`
   Список, восстановление, окончательное удаление и размер корзин `background-images/removed` и `menu-media/removed`.
+
+- `Source/CompositionPolicy.cs`, `Source/CompositionProfile.cs`, `Source/Composition.cs`, `Source/CompositionGui.cs`
+  Чистая политика раскладок без зазоров и имён плиток, codec пресета `ShaderStripMod.composition.txt` (`formatVersion=2`), runtime CommandBuffer на мировой камере, меши/материалы/медиа и вкладка Panels.
+
+- `Source/HotkeyProfile.cs`, `Source/Hotkeys.cs`, `Source/HotkeysGui.cs`
+  Чистый профиль и политика клавиш, codec `ShaderStripMod.hotkeys.txt`, runtime загрузки/сохранения/захвата и вкладка Hotkeys.
+
+- `Source/CapturePresetProfile.cs`, `Source/CapturePresets.cs`
+  Чистая политика режимов захвата, модель и codec `ShaderStripMod.capture-presets.txt`, runtime загрузки/сохранения/бэкапов и панель Save/Apply/Delete в F9 → Settings.
 
 - `Source/Models.cs`, `Source/RuntimeLoop.cs`  
   Существующие вложенные модели и компоненты ScanBehaviour/ProjectileVisibilityWatcher.
@@ -186,8 +287,17 @@ ShaderStripMod сейчас похож на runtime chroma-key / green-screen м
   - `preservedSyncInterval=...`
   - `maxPreservedRenderers=...`
   - `maxProjectileParticleRenderers=...`
+  - `compositionEnabled=true|false`
+
+  Раскладка, placement, файлы и аудио плиток хранятся не здесь, а в `ShaderStripMod.composition.txt`. `compositionHudMode` из 1.30.x больше не читается и не пишется. Ключи 1.30.0 `compositionLayout`, `compositionLeftFile`, `compositionRightFile`, `compositionLeftPaused`, `compositionRightPaused` больше не пишутся; при первом запуске они мигрируют в пресет.
 
   Четыре visual override switch сейчас по умолчанию `false`. На этапе Частей 1–2 они отражаются только в диагностике и не активируют renderer mutations.
+
+- `ShaderStripMod.composition.txt`  
+  Пресет медиакомпозиции (`formatVersion=2`): `layout`, `placement` (Cover/Contain/Stretch) и четыре блока `panel.N.file|paused|sound|volume|muted`. Старый `gap` игнорируется; пресет `formatVersion=1` сохраняет раскладку и назначенные файлы. Пишется атомарно через `AtomicTextFile`; неизвестные ключи и комментарии при перезаписи теряются. Отсутствие файла даёт значения по умолчанию.
+
+- `ShaderStripMod.hotkeys.txt`  
+  Профиль горячих клавиш (`formatVersion=1`): одна строка `actionId=key` на действие. Пишется атомарно при изменении; отсутствие файла даёт F9/F8/F10/F11/F12. Ручная правка — только при закрытой игре; неизвестные ключи и комментарии при перезаписи теряются.
 
 - `ShaderStripMod.visual-rules.txt`  
   Отдельный UTF-8 файл `formatVersion=1`. При отсутствии атомарно создаётся пустым; F11 перечитывает его вместе с preserve rules. Валидные строки плохого документа могут загрузиться частично, а полностью отклонённый reload сохраняет предыдущий рабочий document в памяти.
@@ -196,7 +306,7 @@ ShaderStripMod сейчас похож на runtime chroma-key / green-screen м
   Зарезервированный root пользовательских PNG и backups visual-rules. Папка вычисляется при старте, но создаётся лениво только при реальном использовании replacement/save, поэтому Parts 1–2 её не создают.
 
 - `ShaderStripMod.sprite-dump.txt`  
-  Дамп имен sprites/textures/materials/renderers, создается по `F10`.
+  Дамп имен sprites/textures/materials/renderers, создается по клавише дампа (F10 по умолчанию).
 
 - `exports/` или папка Downloads  
   PNG-экспорты и metadata `.txt` к ним.
@@ -221,7 +331,7 @@ Initialize
   -> ApplyStrip
 
 ScanBehaviour.Update
-  -> горячие клавиши F9/F10/F11/F12
+  -> горячие клавиши из профиля (по умолчанию F8-F12) и Esc
   -> scheduler распределяет обычные тяжелые задачи по кадрам
   -> CaptureRecentProjectileRenderers по projectileCaptureMode/интервалу
   -> UpdatePreservedRendererProxies по proxyUpdateInterval
@@ -247,13 +357,15 @@ Unload / DisableVisuals
 
 ## Горячие клавиши
 
-- `F8` - закрепить игровую камеру в текущей точке / вернуть слежение за персонажем (с 1.29.29). При открытом F9 клавиша игнорируется; с 1.29.30 фиксация управляется кнопкой F9 → Settings.
+Пять действий с 1.30.2 настраиваются в F9 → Hotkeys и хранятся в `ShaderStripMod.hotkeys.txt`. Значения по умолчанию:
+
 - `F9` - открыть/закрыть Texture Browser; по умолчанию открытое окно ставит игровое время на паузу.
+- `F8` - закрепить игровую камеру в текущей точке / вернуть слежение за персонажем. При открытом браузере игнорируется; фиксация также управляется кнопкой F9 → Settings.
 - `F10` - dump loaded sprites/textures/materials/renderers.
 - `F11` - перезагрузить `ShaderStripMod.preserve.txt` и `ShaderStripMod.visual-rules.txt`.
-- `F12` - включить/выключить визуальный режим мода. С 1.29.30 фиксацию камеры не снимает.
+- `F12` - включить/выключить изоляцию геймплея. Фиксацию камеры не снимает.
 
-С 1.29.31 F8-F12 и Esc проходят через `ModHotkeyPolicy`. Пока F9 открыт, F10-F12 не срабатывают из текстовых полей и других элементов браузера; работают только F9 (закрыть) и Esc (отмена/закрытие).
+С 1.29.31 все действия и Esc проходят через `ModHotkeyPolicy`. С 1.30.2 `RuntimeLoop` читает клавиши из профиля; захват во вкладке Hotkeys потребляет ввод кадра, Esc отменяет захват и не закрывает браузер. Пока браузер открыт, остальные действия не срабатывают из текстовых полей и других элементов; работают только клавиша браузера (закрыть) и Esc (отмена/закрытие вне захвата). Допустимы F1-F12, A-Z, Alpha0-Alpha9, Keypad0-Keypad9, Insert/Home/End/PageUp/PageDown/Delete/Backspace/Space и операторы цифрового блока; Esc, Enter, Tab и стрелки зарезервированы. Конфликты проверяются только между действиями мода.
 
 Режим `Nearby` доступен внутри Texture Browser через `F9`. Его прежняя дублирующая клавиша F8 удалена в 1.29.8; с 1.29.29 F8 управляет закреплением камеры.
 
@@ -292,7 +404,7 @@ Texture Browser:
 - `textureBrowserSearch` - фильтр.
 - `selectedTextureBrowserIndex` - выбранная строка.
 - `textureBrowser...Mode` - Loaded/Nearby/Entities/Atlases/Rules/Projectiles.
-- `textureBrowserDetailTab` - правая вкладка Info/Preview/Rules/Export/Settings/Performance.
+- `textureBrowserDetailTab` - правая вкладка Info/Preview/Rules/Export/Settings/Performance/Mask/Menu design/Panels/Hotkeys.
 - `textureBrowserPreviewZoom/Pan/Dragging` - состояние preview.
 
 Снаряды:
@@ -467,6 +579,7 @@ UI:
 - `Export` - экспорт PNG/atlas и путь экспорта.
 - `Settings` - язык, камера, пауза, цвет/изображение фона и корзина изображений.
 - `Performance` - профили нагрузки, projectile performance, scheduler/cache/diagnostics settings, счетчики и статистика preserve scan.
+- `Panels` - полноэкранная медиакомпозиция: включение, раскладка без зазоров, placement, четыре медиаплитки, импорт PNG/JPG/GIF/видео, пауза, звук и сброс.
 
 ## Performance
 

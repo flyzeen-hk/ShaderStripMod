@@ -26,7 +26,7 @@ namespace ShaderStripMod
             Check(!MenuViewport.HasRoundingGap(0,.125f,1,.75f,1024,768),"Keep intentional 4:3 letterboxing");
             Check(!MenuViewport.HasRoundingGap(.1f,0,.9f,1,1920,1080),"Keep deliberate partial camera viewport");
             Check(!MenuViewport.HasRoundingGap(0,0,1,1,0,768),"Do not normalize invalid screen dimensions");
-            var mod=new ShaderStripMod {visualsActive=true,testScene="Menu_Title"};
+            var mod=new ShaderStripMod {menuDesignEnabled=true,testScene="Menu_Title"};
             var rect=new UnityEngine.Rect(0,.001953125f,1,.99609375f);
             var overlay=new UnityEngine.Camera {rect=rect,clearFlags=UnityEngine.CameraClearFlags.Depth,cullingMask=1<<27};
             overlay.testTk2d=new tk2dCamera();overlay.testTk2d.CameraSettings.rect=rect;

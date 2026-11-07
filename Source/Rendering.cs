@@ -18,7 +18,21 @@ namespace ShaderStripMod
             {
                 heroLayer = -1;
                 visibleMask = 0;
-                ApplyMenuBackground();
+                if (menuDesignEnabled)
+                {
+                    ApplyMenuBackground();
+                }
+                else
+                {
+                    RestoreMenuBackgroundIfActive();
+                }
+
+                return;
+            }
+
+            if (!gameplayIsolationEnabled)
+            {
+                RestoreMenuBackgroundIfActive();
                 return;
             }
 
@@ -76,7 +90,10 @@ namespace ShaderStripMod
 
             heroLayer = layer;
             visibleMask = 1 << heroLayer;
-            AddLayerToMask("Attack", ref visibleMask);
+            if (CaptureShowsAttacks)
+            {
+                AddLayerToMask("Attack", ref visibleMask);
+            }
             Log("ShaderStripMod hero layer = " + heroLayer + " (" + LayerMask.LayerToName(heroLayer) + "), visibleMask = 0x" + visibleMask.ToString("X8") + ".");
         }
 
@@ -276,7 +293,7 @@ namespace ShaderStripMod
 
         private void PromoteEffects()
         {
-            if (heroLayer < 0)
+            if (heroLayer < 0 || !CaptureShowsAttacks)
             {
                 return;
             }

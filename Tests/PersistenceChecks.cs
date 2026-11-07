@@ -12,7 +12,7 @@ namespace ShaderStripMod
         readonly HashSet<string> preservedAssetNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedSpriteNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedTextureNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedMaterialNames=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedObjectPaths=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedGroupObjectPaths=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedProjectileObjectPaths=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedRendererRuleKeys=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedRendererExactMatchKeys=new HashSet<string>(StringComparer.OrdinalIgnoreCase),preservedProjectileRendererExactMatchKeys=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readonly List<RendererPreserveRule> preservedRendererRules=new List<RendererPreserveRule>();
         sealed class RendererPreserveRule { internal string SceneName,ObjectPath,RendererType,SpriteName,MaterialName,TextureName,RuleKey;internal bool Projectile; }
-        bool preservedRendererRuleIndexDirty,preservedRendererRuleIndexHasFallbackRules; bool visualsActive=false;
+        bool preservedRendererRuleIndexDirty,preservedRendererRuleIndexHasFallbackRules; bool gameplayIsolationEnabled=false,menuDesignEnabled=false;
         string preserveFilePath;string projectilePerformanceMode="Balanced";
         float preservedSyncIntervalSetting=.5f;
         const string ProjectilePerformanceCustom="Custom";
@@ -74,7 +74,13 @@ namespace ShaderStripMod
                 Check(saved.Contains("path=Room/Bench")&&!saved.Contains("Different/New"),"Saving after failed reload retains previous rule set");
                 Check(File.ReadAllText(mod.preserveFilePath+".bak").Contains("Different/New"),"Preserve save keeps replaced source as recovery backup");
                 mod.LoadPreserveList();Check(mod.GetTotalPreserveRuleCount()==8,"Saved production preserve format round trips");
-                using(var locked=new FileStream(mod.preserveFilePath,FileMode.Open,FileAccess.Read,FileShare.None)) mod.SavePreserveList();
+                var snapshot=mod.SnapshotPreserveRuleLines();mod.ClearAllPreserveRuleCollections();
+                mod.AddPreserveEntriesFromLine("path=Rollback/Only");mod.RestorePreserveRuleLines(snapshot);
+                Check(mod.GetTotalPreserveRuleCount()==8&&mod.preservedObjectPaths.Contains("Room/Bench")&&!mod.preservedObjectPaths.Contains("Rollback/Only")&&mod.preservedRendererRules.Count==1,
+                    "Restoring a preserve snapshot returns exactly the previous rules");
+                bool saveFailed=false;
+                using(var locked=new FileStream(mod.preserveFilePath,FileMode.Open,FileAccess.Read,FileShare.None)) saveFailed=!mod.SavePreserveList();
+                Check(saveFailed&&mod.lastPreserveFileError.Length>0,"Failed preserve save returns false and records the error");
                 Check(File.ReadAllText(mod.preserveFilePath)==saved&&Directory.GetFiles(folder,"*.tmp.*").Length==0,"Failed preserve save retains file and cleans temporary");
                 AtomicTextFile.Write(mod.preserveFilePath,"# Empty by user choice\n");mod.LoadPreserveList();
                 Check(mod.GetTotalPreserveRuleCount()==0&&mod.preservedRendererExactMatchKeys.Count==0&&mod.preservedRendererRuleIndexDirty,"Successful empty preserve list deliberately clears live rules and index");

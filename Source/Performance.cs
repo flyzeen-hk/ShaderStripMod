@@ -479,7 +479,7 @@ namespace ShaderStripMod
             preserveDrawSyncRequested = true;
             RestorePreservedRendererDraws();
             RestorePreservedRendererProxies();
-            if (visualsActive)
+            if (gameplayIsolationEnabled)
             {
                 ApplyStrip();
             }

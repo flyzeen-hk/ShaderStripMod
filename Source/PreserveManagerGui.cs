@@ -27,6 +27,12 @@ namespace ShaderStripMod
             }
             finally{GUI.enabled=enabled;GUI.backgroundColor=color;}
         }
+        private bool DrawDangerRuleButton(Rect rect,string label,bool available=true)
+        {
+            bool enabled=GUI.enabled;
+            try{GUI.enabled=enabled&&available;return UiDangerButton(rect,label,GUI.skin.button);}
+            finally{GUI.enabled=enabled;}
+        }
         private void DrawRendererPreserveControls(TextureBrowserEntry entry, Rect rect)
         {
             RendererPreserveRule rendererRule = BuildRendererPreserveRule(entry, false);
@@ -59,7 +65,7 @@ namespace ShaderStripMod
                 lastTextureExportMessage = (projectilePreserved ? "Projectile path removed: " : "Projectile path added: ") + projectilePath + ".";
             }
 
-            if (DrawRuleButton(RuleButtonRect(rect,4,3),"Clear",false,IsTextureBrowserEntryPreserved(entry)))
+            if (DrawDangerRuleButton(RuleButtonRect(rect,4,3),"Clear",IsTextureBrowserEntryPreserved(entry)))
             {
                 ClearPreserveRulesFromBrowser(entry);
             }
@@ -85,7 +91,7 @@ namespace ShaderStripMod
                 SetPreserveNameRule(preservedMaterialNames, materialName, !IsEntryMaterialPreserved(entry));
             }
 
-            if (DrawRuleButton(RuleButtonRect(rect,4,3),"Clear",false,IsTextureBrowserEntryPreserved(entry)))
+            if (DrawDangerRuleButton(RuleButtonRect(rect,4,3),"Clear",IsTextureBrowserEntryPreserved(entry)))
             {
                 ClearPreserveRulesFromBrowser(entry);
             }
@@ -132,15 +138,16 @@ namespace ShaderStripMod
             textureBrowserDetailScroll = GUI.BeginScrollView(viewport, textureBrowserDetailScroll,
                 new Rect(0, 0, width, Mathf.Max(viewport.height, preserveManagerContentHeight)));
             float y = 0;
+            DrawPreserveManagerWrappedLabel(ref y, width, "Rules keep matching objects visible above the collage. Click a rule type to toggle it.");
             DrawPreserveManagerWrappedLabel(ref y, width, "Rules: renderer=" + preservedRendererRules.Count + ", path=" + preservedObjectPaths.Count + ", group=" + preservedGroupObjectPaths.Count + ", projectile=" + preservedProjectileObjectPaths.Count + ", sprite=" + preservedSpriteNames.Count + ", texture=" + preservedTextureNames.Count + ", material=" + preservedMaterialNames.Count + ", legacy=" + preservedAssetNames.Count + ", ignored=" + CountIgnoredPreservePathRules());
             DrawPreserveManagerWrappedLabel(ref y, width, lastPreserveManagerMessage);
             TextureBrowserEntry entry = selectedTextureBrowserIndex >= 0 && selectedTextureBrowserIndex < textureBrowserEntries.Count ? textureBrowserEntries[selectedTextureBrowserIndex] : null;
             bool remove = false;
-            if (entry == null) DrawPreserveManagerWrappedLabel(ref y, width, "No preserve rule selected.");
+            if (entry == null) DrawPreserveManagerWrappedLabel(ref y, width, "Select a rule on the left to inspect it.");
             else
             {
                 DrawPreserveManagerWrappedLabel(ref y, width, entry.Kind + ": " + entry.Name);
-                remove = UiButton(new Rect(0, y, Mathf.Min(140f, width), 26f), "Remove Rule");
+                remove = UiDangerButton(new Rect(0, y, Mathf.Min(140f, width), 26f), "Remove Rule");
                 y += 34f;
                 DrawPreserveManagerWrappedLabel(ref y, width, BuildPreserveManagerInfo(entry));
                 DrawPreserveManagerWrappedLabel(ref y, width, BuildPreserveRuntimeSummary());
@@ -346,6 +353,7 @@ namespace ShaderStripMod
                 return;
             }
 
+            List<string> previous = SnapshotPreserveRuleLines();
             bool changed = RemovePreserveRuleValue(entry.PreserveManagerRuleKind, value);
             if (!changed)
             {
@@ -354,8 +362,23 @@ namespace ShaderStripMod
                 return;
             }
 
-            string backup = BackupPreserveFile("before_remove_rule");
-            SavePreserveList();
+            string backup;
+            if (!TryBackupPreserveFile("before_remove_rule", out backup))
+            {
+                RestorePreserveRuleLines(previous);
+                RefreshAfterPreserveManagerChange();
+                lastPreserveManagerMessage = "Preserve file backup failed. No changes were made.";
+                return;
+            }
+
+            if (!SavePreserveList())
+            {
+                RestorePreserveRuleLines(previous);
+                RefreshAfterPreserveManagerChange();
+                lastPreserveManagerMessage = "Preserve file could not be saved. Changes were rolled back.";
+                return;
+            }
+
             RefreshAfterPreserveManagerChange();
             lastPreserveManagerMessage = "Removed preserve rule. Backup: " + backup;
         }
@@ -410,7 +433,15 @@ namespace ShaderStripMod
                 return;
             }
 
-            string backup = BackupPreserveFile("before_clean_ignored");
+            string backup;
+            if (!TryBackupPreserveFile("before_clean_ignored", out backup))
+            {
+                lastPreserveManagerMessage = "Preserve file backup failed. No changes were made.";
+                RefreshPreserveManagerEntries();
+                return;
+            }
+
+            List<string> previous = SnapshotPreserveRuleLines();
             for (int i = 0; i < removeRenderers.Count; i++)
             {
                 RemoveRendererPreserveRule(removeRenderers[i]);
@@ -431,15 +462,33 @@ namespace ShaderStripMod
                 preservedProjectileObjectPaths.Remove(removeProjectiles[i]);
             }
 
-            SavePreserveList();
+            if (!SavePreserveList())
+            {
+                RestorePreserveRuleLines(previous);
+                RefreshAfterPreserveManagerChange();
+                lastPreserveManagerMessage = "Preserve file could not be saved. Changes were rolled back.";
+                return;
+            }
+
             RefreshAfterPreserveManagerChange();
             lastPreserveManagerMessage = "Removed ignored rules: " + (removeRenderers.Count + remove.Count + removeGroups.Count + removeProjectiles.Count) + ". Backup: " + backup;
         }
 
         private void CompactPreserveListFromManager()
         {
-            string backup = BackupPreserveFile("before_compact");
-            SavePreserveList();
+            string backup;
+            if (!TryBackupPreserveFile("before_compact", out backup))
+            {
+                lastPreserveManagerMessage = "Preserve file backup failed. No changes were made.";
+                return;
+            }
+
+            if (!SavePreserveList())
+            {
+                lastPreserveManagerMessage = "Preserve file was not compacted: it could not be saved.";
+                return;
+            }
+
             RefreshAfterPreserveManagerChange();
             lastPreserveManagerMessage = "Preserve file compacted. Backup: " + backup;
         }
@@ -451,7 +500,7 @@ namespace ShaderStripMod
             RestorePreservedRendererDraws();
             RestorePreservedRendererProxies();
             MarkPreservedRendererCacheDirty();
-            if (visualsActive)
+            if (gameplayIsolationEnabled || menuDesignEnabled)
             {
                 ApplyStrip();
             }
@@ -460,11 +509,12 @@ namespace ShaderStripMod
             preserveManagerRuntimeReportDirty = true;
         }
 
-        private string BackupPreserveFile(string reason)
+        private bool TryBackupPreserveFile(string reason, out string backupPath)
         {
+            backupPath = "";
             if (string.IsNullOrEmpty(preserveFilePath) || !File.Exists(preserveFilePath))
             {
-                return "";
+                return true;
             }
 
             try
@@ -476,15 +526,17 @@ namespace ShaderStripMod
                 }
 
                 string stamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string backupPath = Path.Combine(directory, PreserveFileName + ".bak_" + reason + "_" + stamp);
-                backupPath = GetUniqueFilePath(backupPath);
+                string candidate = Path.Combine(directory, PreserveFileName + ".bak_" + reason + "_" + stamp);
+                backupPath = GetUniqueFilePath(candidate);
                 File.Copy(preserveFilePath, backupPath);
-                return backupPath;
+                return true;
             }
             catch (System.Exception ex)
             {
+                backupPath = "";
+                lastPreserveFileError = ex.Message;
                 Log("ShaderStripMod preserve backup failed: " + ex.Message);
-                return "";
+                return false;
             }
         }
 

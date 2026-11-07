@@ -17,7 +17,7 @@ namespace ShaderStripMod
             preservedObjectOrder = normalized;
             MarkPreservedRendererCacheDirty();
             SaveExportSettings();
-            if (visualsActive) ApplyStrip();
+            if (gameplayIsolationEnabled || menuDesignEnabled) ApplyStrip();
         }
     }
 }

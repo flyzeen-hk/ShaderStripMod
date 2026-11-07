@@ -33,11 +33,34 @@ namespace ShaderStripMod
         private bool UiButton(Rect rect,string text) { return UiButton(rect,text,GUI.skin.button); }
         private bool UiButton(Rect rect,string text,GUIStyle style)
         { text=UiText(text);return GUI.Button(rect,new GUIContent(text),FitUiStyle(rect,text,style)); }
+        private bool UiDangerButton(Rect rect,string text) { return UiDangerButton(rect,text,GUI.skin.button); }
+        private bool UiDangerButton(Rect rect,string text,GUIStyle style)
+        {
+            Color previous=GUI.backgroundColor;
+            try{GUI.backgroundColor=new Color(1f,.45f,.45f,1f);return UiButton(rect,text,style);}
+            finally{GUI.backgroundColor=previous;}
+        }
         private void UiLabel(Rect rect,string text) { UiLabel(rect,text,GUI.skin.label); }
         private void UiLabel(Rect rect,string text,GUIStyle style)
         { text=UiText(text);GUI.Label(rect,new GUIContent(text),style.wordWrap?style:FitUiStyle(rect,text,style)); }
         private bool UiToggle(Rect rect,bool value,string text)
         { text=UiText(text);return GUI.Toggle(rect,value,new GUIContent(text),FitUiStyle(rect,text,GUI.skin.toggle)); }
         private void UiBox(Rect rect,string text) { GUI.Box(rect,UiText(text)); }
+        private GUIStyle uiSectionHeaderStyle;
+        private GUIStyle UiSectionHeaderStyle()
+        {
+            if(uiSectionHeaderStyle==null) uiSectionHeaderStyle=new GUIStyle(GUI.skin.label){fontStyle=FontStyle.Bold};
+            return uiSectionHeaderStyle;
+        }
+        private void UiSectionLabel(ref float y,float width,string text)
+        {
+            if(string.IsNullOrEmpty(text)) return;
+            string localized=UiText(text);
+            GUIStyle style=UiSectionHeaderStyle();
+            float height=Mathf.Max(22f,style.CalcHeight(new GUIContent(localized),Mathf.Max(1f,width)));
+            y+=10f;
+            UiLabel(new Rect(0f,y,width,height),localized,style);
+            y+=height+4f;
+        }
     }
 }

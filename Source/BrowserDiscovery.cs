@@ -20,6 +20,7 @@ namespace ShaderStripMod
             backgroundImageFilesDirty = true;
             if (!visible)
             {
+                CancelHotkeyCapture();
                 ReleaseMaskEditor();CancelTexturePreviewPointer();maskLibraryMode=false;
                 browserInputReleaseFrame = Time.frameCount + 1;
                 browserWaitingForInputRelease = true;

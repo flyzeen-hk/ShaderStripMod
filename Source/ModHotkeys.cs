@@ -8,7 +8,7 @@ namespace ShaderStripMod
         ToggleCameraPin,
         DumpLoadedAssets,
         ReloadPreserveList,
-        ToggleVisuals
+        ToggleGameplayIsolation
     }
 
     internal static class ModHotkeyPolicy
@@ -16,46 +16,46 @@ namespace ShaderStripMod
         internal static ModHotkeyAction Resolve(
             bool browserVisible,
             bool escapePressed,
-            bool f8Pressed,
-            bool f9Pressed,
-            bool f10Pressed,
-            bool f11Pressed,
-            bool f12Pressed)
+            bool browserTogglePressed,
+            bool cameraPinPressed,
+            bool dumpPressed,
+            bool reloadPressed,
+            bool isolationPressed)
         {
             if (browserVisible && escapePressed)
             {
                 return ModHotkeyAction.CloseBrowser;
             }
 
-            if (f9Pressed)
+            if (browserTogglePressed)
             {
                 return ModHotkeyAction.ToggleBrowser;
             }
 
-            // F9 owns keyboard input while it is open, including text fields.
+            // The browser owns keyboard input while open, including text fields.
             if (browserVisible)
             {
                 return ModHotkeyAction.None;
             }
 
-            if (f8Pressed)
+            if (cameraPinPressed)
             {
                 return ModHotkeyAction.ToggleCameraPin;
             }
 
-            if (f10Pressed)
+            if (dumpPressed)
             {
                 return ModHotkeyAction.DumpLoadedAssets;
             }
 
-            if (f11Pressed)
+            if (reloadPressed)
             {
                 return ModHotkeyAction.ReloadPreserveList;
             }
 
-            if (f12Pressed)
+            if (isolationPressed)
             {
-                return ModHotkeyAction.ToggleVisuals;
+                return ModHotkeyAction.ToggleGameplayIsolation;
             }
 
             return ModHotkeyAction.None;

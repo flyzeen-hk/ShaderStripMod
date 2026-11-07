@@ -32,7 +32,8 @@ namespace ShaderStripMod
         }
         private void ConfigureGameplayCamera(Camera camera,Camera world)
         {
-            if(camera==null || camera.targetTexture!=null) return;
+            if(camera==null) return;
+            if(camera.targetTexture!=null) return;
             StoreCameraState(camera);
             int mask=camera==world ? visibleMask : 0;
             var menuCamera=GetGameMenuCamera();
@@ -54,13 +55,15 @@ namespace ShaderStripMod
         }
         private void ReassertMenuCameraBeforeCull(Camera camera)
         {
-            if(!visualsActive || !menuBackgroundMode || !menuMaskCached || !IsMenuScene(GetActiveSceneName())) return;
+            if(!menuDesignEnabled || !menuBackgroundMode || !menuMaskCached || !IsMenuScene(GetActiveSceneName())) return;
             ConfigureMenuCamera(camera,GetMenuBackgroundCamera(Camera.allCameras),cachedMenuMask);
         }
         private void ReassertGameplayCameraBeforeCull(Camera camera)
         {
-            if(!visualsActive || camera==null || camera.targetTexture!=null || heroLayer<0 || visibleMask==0 || IsMenuScene(GetActiveSceneName())) return;
-            ConfigureGameplayCamera(camera,GetGameplayWorldCamera(Camera.allCameras));
+            if(!gameplayIsolationEnabled || camera==null || heroLayer<0 || visibleMask==0 || IsMenuScene(GetActiveSceneName())) return;
+            if(camera.targetTexture!=null) return;
+            Camera world=GetGameplayWorldCamera(Camera.allCameras);
+            ConfigureGameplayCamera(camera,world);
         }
     }
 }
